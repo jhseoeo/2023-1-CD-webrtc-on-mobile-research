@@ -1,9 +1,5 @@
 import kinesisSDK from './kinesisSDK';
-import {
-	PUBLIC_KINESIS_REGION,
-	PUBLIC_KINESIS_ACCESS_KEY_ID,
-	PUBLIC_KINESIS_SECRET_ACCESS_KEY
-} from '$env/static/public';
+import config from '$lib/config';
 import { SignalingClient } from 'amazon-kinesis-video-streams-webrtc/lib/SignalingClient';
 import { Role } from 'amazon-kinesis-video-streams-webrtc/lib/Role';
 
@@ -22,12 +18,12 @@ export default class Viewer {
 		this.signalingClient = new SignalingClient({
 			role: Role.VIEWER,
 			clientId: this.clientId,
-			region: PUBLIC_KINESIS_REGION,
+			region: config.kinesisRegion,
 			channelARN: ChannelARN,
 			channelEndpoint: wssEndpoint,
 			credentials: {
-				accessKeyId: PUBLIC_KINESIS_ACCESS_KEY_ID,
-				secretAccessKey: PUBLIC_KINESIS_SECRET_ACCESS_KEY
+				accessKeyId: config.kinesisAccessKeyId,
+				secretAccessKey: config.kinesisSecretAccessKey
 			}
 		});
 

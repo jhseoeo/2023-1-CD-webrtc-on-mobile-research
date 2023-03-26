@@ -1,17 +1,13 @@
 import { KinesisVideo, KinesisVideoSignalingChannels } from 'aws-sdk';
-import {
-	PUBLIC_KINESIS_REGION,
-	PUBLIC_KINESIS_ACCESS_KEY_ID,
-	PUBLIC_KINESIS_SECRET_ACCESS_KEY
-} from '$env/static/public';
+import config from '$lib/config';
 
 class kinesisSDK {
 	constructor() {
 		this.kinesisVideo = new KinesisVideo({
-			region: PUBLIC_KINESIS_REGION,
+			region: config.kinesisRegion,
 			credentials: {
-				accessKeyId: PUBLIC_KINESIS_ACCESS_KEY_ID,
-				secretAccessKey: PUBLIC_KINESIS_SECRET_ACCESS_KEY
+				accessKeyId: config.kinesisAccessKeyId,
+				secretAccessKey: config.kinesisSecretAccessKey
 			}
 		});
 	}
@@ -48,10 +44,10 @@ class kinesisSDK {
 		const endpoints = await this.getEndpoints(channelARN, 'HTTPS', role);
 
 		const kinesisVideoSignalingChannel = new KinesisVideoSignalingChannels({
-			region: PUBLIC_KINESIS_REGION,
+			region: config.kinesisRegion,
 			credentials: {
-				accessKeyId: PUBLIC_KINESIS_ACCESS_KEY_ID,
-				secretAccessKey: PUBLIC_KINESIS_SECRET_ACCESS_KEY
+				accessKeyId: config.kinesisAccessKeyId,
+				secretAccessKey: config.kinesisSecretAccessKey
 			},
 			endpoint: endpoints
 		});
@@ -75,7 +71,7 @@ class kinesisSDK {
 			},
 			[
 				{
-					urls: `stun:stun.kinesisvideo.${PUBLIC_KINESIS_REGION}.amazonaws.com:443`
+					urls: `stun:stun.kinesisvideo.${config.kinesisRegion}.amazonaws.com:443`
 				}
 			]
 		);
@@ -94,6 +90,13 @@ class kinesisSDK {
 			.describeSignalingChannel({
 				ChannelName: channelName
 			})
+			.promise();
+	}
+
+	async deleteSignalingChannel(channelName) {
+		const channel = await this.getSignalingChannel(channelName);
+		return this.kinesisVideo
+			.deleteSignalingChannel({ ChannelARN: channel.ChannelInfo.ChannelARN })
 			.promise();
 	}
 }

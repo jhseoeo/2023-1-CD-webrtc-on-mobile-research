@@ -1,4 +1,5 @@
 <script>
+	import kinesisSDK from '$lib/kinesis/kinesisSDK';
 	let input = '';
 </script>
 
@@ -9,7 +10,7 @@
 		class="channel-button"
 		type="button"
 		on:click={() => {
-			createSignalingChannel(input);
+			kinesisSDK.createSignalingChannel(input);
 		}}
 	>
 		Create Channel
@@ -19,7 +20,7 @@
 		class="channel-button"
 		type="button"
 		on:click={() => {
-			deleteSignalingChannel(input);
+			kinesisSDK.deleteSignalingChannel(input);
 		}}
 	>
 		Delete Channel
