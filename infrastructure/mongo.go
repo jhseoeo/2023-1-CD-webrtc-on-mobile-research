@@ -1,4 +1,4 @@
-package core
+package infrastructure
 
 import (
 	"context"
@@ -9,15 +9,16 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func NewMongoClient() (*mongo.Client, error) {
+func NewMongoDatabase() (*mongo.Database, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	var uri = os.Getenv("MONGO_HOST")
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
+	database := client.Database("logs")
 	if err != nil {
 		return nil, err
 	}
 
-	return client, nil
+	return database, nil
 }

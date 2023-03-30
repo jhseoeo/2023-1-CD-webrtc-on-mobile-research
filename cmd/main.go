@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
 	"github.com/junhyuk0801/2023-1-CD-webrtc-on-mobile-research/backend/interface/routes"
@@ -8,19 +9,21 @@ import (
 )
 
 func main() {
-	// Load .env file
-	err := godotenv.Load("config/.env")
+	var mod string
+	flag.StringVar(&mod, "mod", "DEV", "DEV || PROD")
+
+	envPath := map[string]string{
+		"DEV":  "./dev.env",
+		"PROD": "./prod.env",
+	}
+
+	err := godotenv.Load(envPath[mod])
 	if err != nil {
-		log.Fatalf("Error loading .env file: %v", err)
+		log.Fatalf("Error loading dev.env file: %v", err)
 	}
 
 	// Create a new Fiber app
 	app := fiber.New()
-
-	// Define your routes here
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.SendString("Hello, World!")
-	})
 
 	routes.KVSLogRoutes(app)
 
