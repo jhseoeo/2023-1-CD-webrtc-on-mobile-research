@@ -4,15 +4,25 @@ export default class Logger {
 	}
 
 	init(addr) {
-		this.ws = new WebSocket(`ws://${addr}`);
-		this.ws.onopen = () => {
-			this.opened = true;
-			this.ws.send(JSON.stringify({ data: 'Hello!' }));
-		};
+		return new Promise((resolve) => {
+			this.ws = new WebSocket(`ws://${addr}`);
+			this.ws.onopen = () => {
+				this.opened = true;
+				resolve();
+			};
+
+			this.ws.onclose = () => {
+				console.log('ws closed');
+			};
+
+			this.ws.onerror = () => {
+				console.error('ws error');
+			};
+		});
 	}
 
-	post(data) {
-		if (this.opened) this.ws.send(JSON.stringify(data));
+	async post(data) {
+		if (this.opened) this.ws.send(JSON.stringify({ data }));
 		else console.error('ws not opened');
 	}
 }

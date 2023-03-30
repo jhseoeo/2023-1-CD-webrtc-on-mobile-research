@@ -32,9 +32,9 @@ export default class Viewer {
 		});
 
 		this.signalingClient.on('open', async () => {
-			console.log('[VIEWER] Connected to signaling service');
+			this.logger.post('userId', 'VIEWER', 'KVS', '[VIEWER] Connected to signaling service');
 
-			console.log('[VIEWER] Creating SDP offer');
+			this.logger.post('userId', 'VIEWER', 'SDP', '[VIEWER] Creating SDP offer');
 			await this.peerConnection.setLocalDescription(
 				await this.peerConnection.createOffer({
 					offerToReceiveAudio: true,
@@ -42,47 +42,52 @@ export default class Viewer {
 				})
 			);
 
-			console.log('[VIEWER] Sending SDP offer');
+			this.logger.post('userId', 'VIEWER', 'SDP', '[VIEWER] Sending SDP offer');
 			this.signalingClient.sendSdpOffer(this.peerConnection.localDescription);
-			console.log('[VIEWER] Generating ICE candidates');
+			this.logger.post('userId', 'VIEWER', 'ICE', '[VIEWER] Generating ICE candidates');
 		});
 
 		this.signalingClient.on('sdpAnswer', async (answer) => {
 			// Add the SDP answer to the peer connection
-			console.log('[VIEWER] Received SDP answer');
+			this.logger.post('userId', 'VIEWER', 'SDP', '[VIEWER] Received SDP answer');
 			await this.peerConnection.setRemoteDescription(answer);
 		});
 
 		this.signalingClient.on('iceCandidate', (candidate) => {
 			// Add the ICE candidate received from the MASTER to the peer connection
-			console.log('[VIEWER] Received ICE candidate');
+			this.logger.post('userId', 'VIEWER', 'ICE', '[VIEWER] Received ICE candidate');
 			this.peerConnection.addIceCandidate(candidate);
 		});
 
 		this.signalingClient.on('close', () => {
-			console.log('[VIEWER] Disconnected from signaling channel');
+			this.logger.post('userId', 'VIEWER', 'KVS', '[VIEWER] Disconnected from signaling channel');
 		});
 
 		this.signalingClient.on('error', (error) => {
-			console.error('[VIEWER] Signaling client error: ', error);
+			this.logger.post('userId', 'VIEWER', 'Error', '[VIEWER] Signaling client error:' + error);
 		});
 
 		// Send any ICE candidates to the other peer
 		this.peerConnection.addEventListener('icecandidate', ({ candidate }) => {
 			if (candidate) {
-				console.log('[VIEWER] Generated ICE candidate');
+				this.logger.post('userId', 'VIEWER', 'ICE', '[VIEWER] Generated ICE candidate');
 
 				// When trickle ICE is enabled, send the ICE candidates as they are generated.
-				console.log('[VIEWER] Sending ICE candidate');
+				this.logger.post('userId', 'VIEWER', 'ICE', '[VIEWER] Sending ICE candidate');
 				this.signalingClient.sendIceCandidate(candidate);
 			} else {
-				console.log('[VIEWER] All ICE candidates have been generated');
+				this.logger.post(
+					'userId',
+					'VIEWER',
+					'ICE',
+					'[VIEWER] All ICE candidates have been generated'
+				);
 			}
 		});
 
 		// As remote tracks are received, add them to the remote view
 		this.peerConnection.addEventListener('track', (event) => {
-			console.log('[VIEWER] Received remote track');
+			this.logger.post('userId', 'VIEWER', 'RTC', '[VIEWER] Received remote track');
 			if (this.remoteView.srcObject) {
 				return;
 			}
@@ -91,7 +96,7 @@ export default class Viewer {
 	}
 
 	async start() {
-		console.log('[VIEWER] Starting viewer connection');
+		this.logger.post('userId', 'VIEWER', 'KVS', '[VIEWER] Starting viewer connection');
 		this.signalingClient.open();
 	}
 }
