@@ -44,3 +44,26 @@ func (k KVSLogRepositoryImpl) GetAll(ctx context.Context) ([]model.KVSLog, error
 
 	return result, nil
 }
+
+func (k KVSLogRepositoryImpl) GetByUserId(ctx context.Context, userId string) ([]model.KVSLog, error) {
+	filter := bson.D{{"user_id", userId}}
+	cursor, err := k.kvsLogs.Find(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var result []model.KVSLog
+	for cursor.Next(ctx) {
+		var kvsLog model.KVSLog
+		if err := cursor.Decode(&kvsLog); err != nil {
+			return nil, err
+		}
+		result = append(result, kvsLog)
+	}
+	if err := cursor.Err(); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}

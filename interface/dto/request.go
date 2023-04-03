@@ -6,6 +6,6 @@ type LogType interface {
 	model.KVSLog
 }
 
-type LogDTO[T LogType] struct {
+type LogRequest[T LogType] struct {
 	Data T `json:"data"`
 }
