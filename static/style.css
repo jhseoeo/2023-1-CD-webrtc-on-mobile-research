@@ -1,0 +1,22 @@
+html,
+html,
+body {
+	margin: 0;
+}
+
+video {
+	max-width: 100%;
+}
+
+button {
+	padding: 10px;
+	margin: 2px;
+}
+
+.controller {
+	margin: 10px;
+}
+
+.options {
+	margin: 3px;
+}

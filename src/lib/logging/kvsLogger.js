@@ -3,11 +3,10 @@ import Logger from '$lib/logging/logger';
 
 export default class KVSLogger extends Logger {
 	async init() {
-		await super.init(config.kvsLogServer);
+		await super.init(config.kvsLogServer + '/kvslog/ws');
 	}
 
 	async post(userId, class_, type, content) {
-		console.log(content);
 		await super.post({
 			userId,
 			class: class_,

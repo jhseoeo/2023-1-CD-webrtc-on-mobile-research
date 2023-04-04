@@ -1,5 +1,6 @@
 export const load = async ({ url, params }) => {
 	return {
-		channelName: params.channel
+		channelName: params.channel,
+		userName: params.username
 	};
 };

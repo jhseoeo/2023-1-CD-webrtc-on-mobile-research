@@ -1,78 +1,42 @@
-import kinesisSDK from './kinesisSDK';
-import config from '$lib/config';
-import KVSLogger from '$lib/logging/kvsLogger';
-import { SignalingClient } from 'amazon-kinesis-video-streams-webrtc/lib/SignalingClient';
 import { Role } from 'amazon-kinesis-video-streams-webrtc/lib/Role';
+import KVSClient from './kvsClient';
 
-export default class Master {
-	constructor(channelName, localStream) {
-		this.channelName = channelName;
+export default class Master extends KVSClient {
+	constructor(channelName, userName, localStream) {
+		super(Role.MASTER, channelName, userName);
 		this.localStream = localStream;
 	}
 
 	async init() {
-		const { ChannelARN } = (await kinesisSDK.getSignalingChannel(this.channelName)).ChannelInfo;
-		const wssEndpoint = await kinesisSDK.getEndpoints(ChannelARN, 'WSS', Role.MASTER);
-		const iceServerList = await kinesisSDK.getIceServerList(ChannelARN, Role.MASTER);
-
-		this.logger = new KVSLogger();
-		await this.logger.init();
-
-		this.signalingClient = new SignalingClient({
-			role: Role.MASTER,
-			region: config.kinesisRegion,
-			channelARN: ChannelARN,
-			channelEndpoint: wssEndpoint,
-			credentials: {
-				accessKeyId: config.kinesisAccessKeyId,
-				secretAccessKey: config.kinesisSecretAccessKey
-			}
-		});
-
-		this.signalingClient.on('open', async () => {
-			this.logger.post('userId', 'MASTER', 'KVS', '[MASTER] Connected to signaling service');
-		});
+		await super.init();
 
 		this.signalingClient.on('sdpOffer', async (offer, remoteClientId) => {
 			this.logger.post(
-				'userId',
-				'MASTER',
+				this.clientId,
+				this.role,
 				'SDP',
-				'[MASTER] Received SDP offer from client: ' + remoteClientId
+				`[${this.role}] Received SDP offer from client : ${remoteClientId}`
 			);
 
-			// Create a new peer connection using the offer from the given client
-			this.peerConnection = new RTCPeerConnection({
-				iceServers: iceServerList
-			});
-
 			// Send any ICE candidates to the other peer
-			this.peerConnection.addEventListener('icecandidate', ({ candidate }) => {
+			this.peerConnection.onicecandidate = ({ candidate }) => {
 				if (candidate) {
 					this.logger.post(
-						'userId',
-						'MASTER',
+						this.clientId,
+						this.role,
 						'ICE',
-						'[MASTER] Generated ICE candidate for client: ' + remoteClientId
-					);
-
-					// When trickle ICE is enabled, send the ICE candidates as they are generated.
-					this.logger.post(
-						'userId',
-						'MASTER',
-						'ICE',
-						'[MASTER] Sending ICE candidate to client: ' + remoteClientId
+						`[${this.role}] Generated ICE candidate : ${candidate.candidate}`
 					);
 					this.signalingClient.sendIceCandidate(candidate, remoteClientId);
 				} else {
 					this.logger.post(
-						'userId',
-						'MASTER',
+						this.clientId,
+						this.role,
 						'ICE',
-						'[MASTER] All ICE candidates have been generated for client: ' + remoteClientId
+						`[${this.role}] All ICE candidates have been generated`
 					);
 				}
-			});
+			};
 
 			// If there's no video/audio, this.localStream will be null. So, we should skip adding the tracks from it.
 			if (this.localStream) {
@@ -84,10 +48,10 @@ export default class Master {
 
 			// Create an SDP answer to send back to the client
 			this.logger.post(
-				'userId',
-				'MASTER',
+				this.clientId,
+				this.role,
 				'SDP',
-				'[MASTER] Creating SDP answer for client: ' + remoteClientId
+				`[${this.role}] Creating SDP answer for client`
 			);
 			await this.peerConnection.setLocalDescription(
 				await this.peerConnection.createAnswer({
@@ -97,44 +61,11 @@ export default class Master {
 			);
 
 			// When trickle ICE is enabled, send the answer now and then send ICE candidates as they are generated. Otherwise wait on the ICE candidates.
-			this.logger.post(
-				'userId',
-				'MASTER',
-				'SDP',
-				'[MASTER] Sending SDP answer to client: ' + remoteClientId
-			);
+			this.logger.post(this.clientId, this.role, 'SDP', `[${this.role}] Sending SDP answer`);
 			this.signalingClient.sendSdpAnswer(this.peerConnection.localDescription, remoteClientId);
-			this.logger.post(
-				'userId',
-				'MASTER',
-				'ICE',
-				'[MASTER] Generating ICE candidates for client: ' + remoteClientId
-			);
+			this.logger.post(this.clientId, this.role, 'ICE', `[${this.role}] Generating ICE candidates`);
 		});
 
-		this.signalingClient.on('iceCandidate', async (candidate, remoteClientId) => {
-			this.logger.post(
-				'userId',
-				'MASTER',
-				'ICE',
-				'[MASTER] Received ICE candidate from client: ' + remoteClientId
-			);
-
-			// Add the ICE candidate received from the client to the peer connection
-			this.peerConnection.addIceCandidate(candidate);
-		});
-
-		this.signalingClient.on('close', () => {
-			this.logger.post('userId', 'MASTER', 'KVS', '[MASTER] Disconnected from signaling channel');
-		});
-
-		this.signalingClient.on('error', (e) => {
-			this.logger.post('userId', 'MASTER', 'Error', '[MASTER] Signaling client error', e);
-		});
-	}
-
-	async start() {
-		this.logger.post('userId', 'MASTER', 'KVS', '[MASTER] Starting master connection');
-		this.signalingClient.open();
+		this.logger.post(this.clientId, this.role, 'system', `[${this.role}] Initialized`);
 	}
 }
