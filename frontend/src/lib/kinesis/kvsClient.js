@@ -127,12 +127,13 @@ export default class KVSClient {
 				stats.forEach((report) => {
 					if (report.type == 'candidate-pair' && report.nominated && report.state == 'succeeded') {
 						const candidate = stats.get(report.remoteCandidateId);
-						return resolve({
-							type: candidate.candidateType,
-							ip: candidate.ip,
-							port: candidate.port,
-							protocol: candidate.protocol
-						});
+						// return resolve({
+						// 	type: candidate.candidateType,
+						// 	ip: candidate.ip,
+						// 	port: candidate.port,
+						// 	protocol: candidate.protocol
+						// });
+						return resolve(candidate);
 					}
 				});
 				return reject('No succeeded candidate pair exist');
