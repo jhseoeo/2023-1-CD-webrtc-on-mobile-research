@@ -9,7 +9,7 @@ export default class Logger {
 		return new Promise((resolve, reject) => {
 			if (!this.logging) return resolve();
 			try {
-				this.ws = new WebSocket(`ws://${addr}`);
+				this.ws = new WebSocket(`${addr}`);
 			} catch (e) {
 				console.error(e);
 				reject(e);

@@ -4,7 +4,7 @@
 	"private": true,
 	"scripts": {
 		"dev": "vite dev --host 0.0.0.0",
-		"build": "vite build",
+		"build": "rm -rf ../public ; vite build && mv ./build ../public",
 		"preview": "vite preview",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./jsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./jsconfig.json --watch",
@@ -13,6 +13,7 @@
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "^2.0.0",
+		"@sveltejs/adapter-static": "^2.0.1",
 		"@sveltejs/kit": "^1.5.0",
 		"eslint": "^8.28.0",
 		"eslint-config-prettier": "^8.5.0",
@@ -26,8 +27,10 @@
 	},
 	"type": "module",
 	"dependencies": {
+		"@aws-sdk/client-kinesis-video": "^3.306.0",
+		"@aws-sdk/client-kinesis-video-signaling": "^3.306.0",
 		"amazon-kinesis-video-streams-webrtc": "^2.0.2",
-		"aws-sdk": "^2.1341.0",
+		"aws-sdk": "^2.1352.0",
 		"dotenv": "^16.0.3"
 	}
 }

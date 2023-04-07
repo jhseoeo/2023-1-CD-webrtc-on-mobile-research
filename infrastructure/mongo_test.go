@@ -2,13 +2,14 @@ package infrastructure
 
 import (
 	"fmt"
-	"github.com/joho/godotenv"
 	"os"
 	"testing"
+
+	"github.com/joho/godotenv"
 )
 
 func Test_NewMongoClient(t *testing.T) {
-	err := godotenv.Load("../dev.env")
+	err := godotenv.Load("../.env.local")
 	if err != nil {
 		t.Error(err)
 	}

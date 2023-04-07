@@ -2,7 +2,6 @@
 	import { onMount } from 'svelte';
 	import Viewer from '$lib/kinesis/viewer';
 	import config from '$lib/config';
-	export let data;
 
 	let remoteView;
 	let viewer;
@@ -17,7 +16,10 @@
 	let turnOnly = config.turnOnly;
 
 	onMount(async () => {
-		viewer = new Viewer(data.channelName, data.userName, remoteView);
+		let data = new URLSearchParams(window.location.search)
+
+
+		viewer = new Viewer(data.get('channel'), data.get('username'), remoteView);
 		viewer.registerKvsConnectionStateHandler((state) => {
 			kvsConnectionState = state;
 		});

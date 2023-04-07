@@ -1,5 +1,7 @@
 <script>
+	import config from '$lib/config';
 	import kinesisSDK from '$lib/kinesis/kinesisSDK';
+	
 	let channelName = '';
 	const now = new Date();
 	const year = now.getFullYear();
@@ -14,6 +16,7 @@
 </script>
 
 <div id="controllerPlane">
+	{config.deployMode} Mode<br />
 	<input bind:value={channelName} placeholder="channel name" /><br />
 	<input bind:value={userName} placeholer="user name" />
 	<br />
@@ -41,7 +44,7 @@
 		class="channel-button"
 		type="button"
 		on:click={() => {
-			window.location.href = `/master/${channelName}/${userName}`;
+			window.location.href = `/master?channel=${channelName}&username=${userName}`;
 		}}
 	>
 		Connect Master
@@ -51,7 +54,7 @@
 		class="channel-button"
 		type="button"
 		on:click={async () => {
-			window.location.href = `/viewer/${channelName}/${userName}`;
+			window.location.href = `/viewer?channel=${channelName}&username=${userName}`;
 		}}
 	>
 		Connect Viewer

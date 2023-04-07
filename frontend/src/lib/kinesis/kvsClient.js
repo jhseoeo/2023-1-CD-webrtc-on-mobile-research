@@ -1,6 +1,7 @@
-import kinesisSDK from './kinesisSDK';
+import KinesisSDK from './kinesisSDK';
 import config from '$lib/config';
 import KVSLogger from '$lib/logging/kvsLogger';
+// import { SignalingClient, Role } from 'amazon-kinesis-video-streams-webrtc';
 import { SignalingClient } from 'amazon-kinesis-video-streams-webrtc/lib/SignalingClient';
 import { Role } from 'amazon-kinesis-video-streams-webrtc/lib/Role';
 
@@ -20,9 +21,9 @@ export default class KVSClient {
 	}
 
 	async init() {
-		const { ChannelARN } = (await kinesisSDK.getSignalingChannel(this.channelName)).ChannelInfo;
-		const wssEndpoint = await kinesisSDK.getEndpoints(ChannelARN, 'WSS', this.role);
-		const iceServerList = await kinesisSDK.getIceServerList(ChannelARN, this.role);
+		const { ChannelARN } = (await KinesisSDK.getSignalingChannel(this.channelName)).ChannelInfo;
+		const wssEndpoint = await KinesisSDK.getEndpoints(ChannelARN, 'WSS', this.role);
+		const iceServerList = await KinesisSDK.getIceServerList(ChannelARN, this.role);
 
 		this.logger = new KVSLogger(this.logging, this.printConsole);
 		await this.logger.init();

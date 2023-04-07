@@ -1,6 +1,6 @@
-import kinesisSDK from './kinesisSDK';
-import { Role } from 'amazon-kinesis-video-streams-webrtc/lib/Role';
+import KinesisSDK from './kinesisSDK';
 import KVSClient from './kvsClient';
+import { Role } from 'amazon-kinesis-video-streams-webrtc/lib/Role';
 
 export default class Viewer extends KVSClient {
 	constructor(channelName, userName, remoteView) {
@@ -75,8 +75,8 @@ export default class Viewer extends KVSClient {
 		// )
 		// 	return;
 
-		const { ChannelARN } = (await kinesisSDK.getSignalingChannel(this.channelName)).ChannelInfo;
-		const iceServerList = await kinesisSDK.getIceServerList(ChannelARN, Role.VIEWER);
+		const { ChannelARN } = (await KinesisSDK.getSignalingChannel(this.channelName)).ChannelInfo;
+		const iceServerList = await KinesisSDK.getIceServerList(ChannelARN, Role.VIEWER);
 
 		this.logger.post(this.clientId, this.role, 'WebRTC', `[${this.role}] Retry WebRTC`);
 		this.peerConnection.setConfiguration({

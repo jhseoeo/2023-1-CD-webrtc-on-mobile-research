@@ -2,7 +2,6 @@
 	import { onMount } from 'svelte';
 	import Master from '$lib/kinesis/master';
 	import config from '$lib/config';
-	export let data;
 
 	let localView;
 	let localStream;
@@ -18,12 +17,14 @@
 	let turnOnly = config.turnOnly;
 
 	onMount(async () => {
+		let data = new URLSearchParams(window.location.search)
+
 		localStream = await navigator.mediaDevices.getUserMedia({
 			video: { width: { ideal: 1280 }, height: { ideal: 720 } },
 			audio: false
 		});
 		localView.srcObject = localStream;
-		master = new Master(data.channelName, data.userName, localStream);
+		master = new Master(data.get('channel'), data.get('username'), localStream);
 		master.registerKvsConnectionStateHandler((state) => {
 			kvsConnectionState = state;
 		});

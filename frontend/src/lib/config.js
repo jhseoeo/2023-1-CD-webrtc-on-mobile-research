@@ -1,4 +1,5 @@
 import {
+	PUBLIC_DEPLOY_MODE,
 	PUBLIC_KINESIS_REGION,
 	PUBLIC_KINESIS_ACCESS_KEY_ID,
 	PUBLIC_KINESIS_SECRET_ACCESS_KEY,
@@ -6,6 +7,7 @@ import {
 } from '$env/static/public';
 
 export default {
+	deployMode: PUBLIC_DEPLOY_MODE,
 	kinesisRegion: PUBLIC_KINESIS_REGION,
 	kinesisAccessKeyId: PUBLIC_KINESIS_ACCESS_KEY_ID,
 	kinesisSecretAccessKey: PUBLIC_KINESIS_SECRET_ACCESS_KEY,

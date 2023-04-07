@@ -2,15 +2,16 @@ package persistence
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	"github.com/joho/godotenv"
 	model "github.com/junhyuk0801/2023-1-CD-webrtc-on-mobile-research/backend/domain/entity"
 	"github.com/junhyuk0801/2023-1-CD-webrtc-on-mobile-research/backend/infrastructure"
-	"testing"
-	"time"
 )
 
 func Test_KVSLogRepositoryImpl(t *testing.T) {
-	err := godotenv.Load("../../dev.env")
+	err := godotenv.Load("../../.env.local")
 	if err != nil {
 		t.Error(err)
 	}
