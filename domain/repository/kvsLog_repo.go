@@ -8,4 +8,5 @@ import (
 type KVSLogRepository interface {
 	Insert(context.Context, model.KVSLog) error
 	GetAll(context.Context) ([]model.KVSLog, error)
+	GetByUserId(context.Context, string) ([]model.KVSLog, error)
 }

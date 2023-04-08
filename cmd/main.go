@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 
 	"github.com/gofiber/fiber/v2"
@@ -13,7 +12,7 @@ import (
 func main() {
 	var mod string
 	flag.StringVar(&mod, "mod", "DEV", "DEV || PROD")
-	fmt.Println(mod)
+	log.Println(mod)
 
 	envPath := map[string]string{
 		"DEV":  "./.env.local",
