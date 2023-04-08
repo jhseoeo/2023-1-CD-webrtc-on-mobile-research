@@ -18,7 +18,6 @@
 	onMount(async () => {
 		let data = new URLSearchParams(window.location.search)
 
-
 		viewer = new Viewer(data.get('channel'), data.get('username'), remoteView);
 		viewer.registerKvsConnectionStateHandler((state) => {
 			kvsConnectionState = state;

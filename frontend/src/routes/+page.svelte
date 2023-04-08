@@ -59,6 +59,15 @@
 	>
 		Connect Viewer
 	</button>
+	<br>
+	<button
+		class="channel-button"
+		type="button"
+		on:click={async () => {
+			window.location.href = `/showlog?channel=${channelName}&username=${userName}`;
+		}}>
+		Watch Logs
+	</button>
 </div>
 
 <style>

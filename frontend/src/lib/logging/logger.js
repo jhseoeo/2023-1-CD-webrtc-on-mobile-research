@@ -37,6 +37,12 @@ export default class Logger {
 			else console.error('ws not opened');
 	}
 
+	async changeMessageHandler(handler) {
+		this.ws.onmessage = (e) => {
+			handler(e);
+		};
+	}
+
 	toggleLogging(onOff) {
 		this.logging = onOff;
 	}
