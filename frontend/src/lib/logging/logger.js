@@ -39,7 +39,7 @@ export default class Logger {
 
 	async changeMessageHandler(handler) {
 		this.ws.onmessage = (e) => {
-			handler(e);
+			handler(JSON.parse(e.data));
 		};
 	}
 
