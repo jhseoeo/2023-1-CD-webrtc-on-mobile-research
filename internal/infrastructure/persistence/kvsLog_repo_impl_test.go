@@ -2,12 +2,11 @@ package persistence
 
 import (
 	"context"
+	"github.com/junhyuk0801/2023-1-CD-webrtc-on-mobile-research/backend/internal/domain/entity"
 	"testing"
 	"time"
 
 	"github.com/joho/godotenv"
-	model "github.com/junhyuk0801/2023-1-CD-webrtc-on-mobile-research/backend/domain/entity"
-	"github.com/junhyuk0801/2023-1-CD-webrtc-on-mobile-research/backend/infrastructure"
 )
 
 func Test_KVSLogRepositoryImpl(t *testing.T) {
@@ -16,12 +15,12 @@ func Test_KVSLogRepositoryImpl(t *testing.T) {
 		t.Error(err)
 	}
 
-	database, err := infrastructure.NewMongoDatabase()
+	database, err := NewMongoDatabase()
 	if err != nil {
 		t.Error(err)
 	}
 
-	kvsLog := model.KVSLog{
+	kvsLog := entity.KVSLog{
 		UserID:  "asd",
 		Class:   "asd",
 		Type:    "asd",
