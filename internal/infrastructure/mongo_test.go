@@ -2,6 +2,7 @@ package infrastructure
 
 import (
 	"fmt"
+	"github.com/junhyuk0801/2023-1-CD-webrtc-on-mobile-research/backend/internal/infrastructure/persistence"
 	"os"
 	"testing"
 
@@ -17,7 +18,7 @@ func Test_NewMongoClient(t *testing.T) {
 	uri := os.Getenv("MONGO_HOST")
 	fmt.Println(uri)
 
-	_, err = NewMongoDatabase()
+	_, err = persistence.NewMongoDatabase()
 	if err != nil {
 		t.Error(err)
 	}

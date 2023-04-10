@@ -6,7 +6,6 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
-	"github.com/junhyuk0801/2023-1-CD-webrtc-on-mobile-research/backend/interface/routes"
 )
 
 func main() {
@@ -24,14 +23,9 @@ func main() {
 		log.Fatalf("Error loading .env file: %v", err)
 	}
 
-	// Create a new Fiber app
 	app := fiber.New()
+	initializeApp(app)
 
-	app.Static("/", "./public")
-
-	routes.KVSLogRoutes(app)
-
-	// Start the server and listen on port 3000
 	err = app.Listen(":8484")
 	if err != nil {
 		log.Fatal(err)

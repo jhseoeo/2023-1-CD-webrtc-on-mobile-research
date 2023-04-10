@@ -2,7 +2,7 @@ package persistence
 
 import (
 	"context"
-	model "github.com/junhyuk0801/2023-1-CD-webrtc-on-mobile-research/backend/domain/entity"
+	"github.com/junhyuk0801/2023-1-CD-webrtc-on-mobile-research/backend/internal/domain/entity"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -17,12 +17,12 @@ func NewKVSLogRepositoryImpl(database *mongo.Database) KVSLogRepositoryImpl {
 	}
 }
 
-func (k KVSLogRepositoryImpl) Insert(ctx context.Context, kvsLog model.KVSLog) error {
+func (k KVSLogRepositoryImpl) Insert(ctx context.Context, kvsLog entity.KVSLog) error {
 	_, err := k.kvsLogs.InsertOne(ctx, kvsLog)
 	return err
 }
 
-func (k KVSLogRepositoryImpl) GetAll(ctx context.Context) ([]model.KVSLog, error) {
+func (k KVSLogRepositoryImpl) GetAll(ctx context.Context) ([]entity.KVSLog, error) {
 	filter := bson.D{}
 	cursor, err := k.kvsLogs.Find(ctx, filter)
 	if err != nil {
@@ -30,9 +30,9 @@ func (k KVSLogRepositoryImpl) GetAll(ctx context.Context) ([]model.KVSLog, error
 	}
 	defer cursor.Close(ctx)
 
-	var result []model.KVSLog
+	var result []entity.KVSLog
 	for cursor.Next(ctx) {
-		var kvsLog model.KVSLog
+		var kvsLog entity.KVSLog
 		if err := cursor.Decode(&kvsLog); err != nil {
 			return nil, err
 		}
@@ -45,7 +45,7 @@ func (k KVSLogRepositoryImpl) GetAll(ctx context.Context) ([]model.KVSLog, error
 	return result, nil
 }
 
-func (k KVSLogRepositoryImpl) GetByUserId(ctx context.Context, userId string) ([]model.KVSLog, error) {
+func (k KVSLogRepositoryImpl) GetByUserId(ctx context.Context, userId string) ([]entity.KVSLog, error) {
 	filter := bson.D{{"user_id", userId}}
 	cursor, err := k.kvsLogs.Find(ctx, filter)
 	if err != nil {
@@ -53,9 +53,9 @@ func (k KVSLogRepositoryImpl) GetByUserId(ctx context.Context, userId string) ([
 	}
 	defer cursor.Close(ctx)
 
-	var result []model.KVSLog
+	var result []entity.KVSLog
 	for cursor.Next(ctx) {
-		var kvsLog model.KVSLog
+		var kvsLog entity.KVSLog
 		if err := cursor.Decode(&kvsLog); err != nil {
 			return nil, err
 		}

@@ -1,4 +1,4 @@
-package infrastructure
+package persistence
 
 import (
 	"context"
@@ -15,10 +15,11 @@ func NewMongoDatabase() (*mongo.Database, error) {
 
 	var uri = os.Getenv("MONGO_HOST")
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
-	database := client.Database("logs")
 	if err != nil {
 		return nil, err
 	}
+
+	database := client.Database("logs")
 
 	return database, nil
 }

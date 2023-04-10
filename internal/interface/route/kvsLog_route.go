@@ -1,29 +1,19 @@
-package routes
+package route
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/junhyuk0801/2023-1-CD-webrtc-on-mobile-research/backend/internal/application/services"
+	model "github.com/junhyuk0801/2023-1-CD-webrtc-on-mobile-research/backend/internal/domain/entity"
+	"github.com/junhyuk0801/2023-1-CD-webrtc-on-mobile-research/backend/internal/interface/dto"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/websocket/v2"
-	"github.com/junhyuk0801/2023-1-CD-webrtc-on-mobile-research/backend/application/services"
-	model "github.com/junhyuk0801/2023-1-CD-webrtc-on-mobile-research/backend/domain/entity"
-	"github.com/junhyuk0801/2023-1-CD-webrtc-on-mobile-research/backend/infrastructure"
-	"github.com/junhyuk0801/2023-1-CD-webrtc-on-mobile-research/backend/infrastructure/persistence"
-	"github.com/junhyuk0801/2023-1-CD-webrtc-on-mobile-research/backend/interface/dto"
 )
 
-func KVSLogRoutes(a *fiber.App) {
+func KVSLogRoutes(a *fiber.App, service services.KVSLogService) {
 	route := a.Group("/kvslog")
-
-	database, err := infrastructure.NewMongoDatabase()
-	if err != nil {
-		panic(err)
-	}
-
-	repoImpl := persistence.NewKVSLogRepositoryImpl(database)
-	service := services.KVSLogService{KVSLogRepository: repoImpl}
 
 	route.Post("/log", func(c *fiber.Ctx) error {
 		body := c.Body()
@@ -79,7 +69,9 @@ func KVSLogRoutes(a *fiber.App) {
 			}
 
 			err = service.SaveLog(context.Background(), message.Data)
-			fmt.Println(err)
+			if err != nil {
+				fmt.Println(err)
+			}
 		}
 	}))
 }
