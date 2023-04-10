@@ -48,6 +48,7 @@ export default class KVSClient {
 		this.signalingClient.on('open', async () => {
 			if (this.KvsConnectionStateHandler) this.KvsConnectionStateHandler('connected');
 			this.logger.post(
+				this.channelName,
 				this.clientId,
 				this.role,
 				'KVS',
@@ -57,6 +58,7 @@ export default class KVSClient {
 
 		this.signalingClient.on('iceCandidate', async (candidate, remoteClientId) => {
 			this.logger.post(
+				this.channelName,
 				this.clientId,
 				this.role,
 				'ICE',
@@ -70,6 +72,7 @@ export default class KVSClient {
 		this.signalingClient.on('close', () => {
 			if (this.KvsConnectionStateHandler) this.KvsConnectionStateHandler('disconnected');
 			this.logger.post(
+				this.channelName,
 				this.clientId,
 				this.role,
 				'KVS',
@@ -79,6 +82,7 @@ export default class KVSClient {
 
 		this.signalingClient.on('error', (e) => {
 			this.logger.post(
+				this.channelName,
 				this.clientId,
 				this.role,
 				'Error',
@@ -88,6 +92,7 @@ export default class KVSClient {
 
 		this.peerConnection.addEventListener('iceconnectionstatechange', ({ target }) => {
 			this.logger.post(
+				this.channelName,
 				this.clientId,
 				this.role,
 				'WebRTC',
@@ -98,6 +103,7 @@ export default class KVSClient {
 
 		this.peerConnection.addEventListener('connectionstatechange', ({ target }) => {
 			this.logger.post(
+				this.channelName,
 				this.clientId,
 				this.role,
 				'WebRTC',
@@ -108,7 +114,13 @@ export default class KVSClient {
 	}
 
 	connectKVS() {
-		this.logger.post(this.clientId, this.role, 'KVS', `[${this.role}] Starting connection`);
+		this.logger.post(
+			this.channelName,
+			this.clientId,
+			this.role,
+			'KVS',
+			`[${this.role}] Starting connection`
+		);
 		this.signalingClient.open();
 	}
 

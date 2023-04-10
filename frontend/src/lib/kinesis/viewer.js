@@ -12,13 +12,25 @@ export default class Viewer extends KVSClient {
 
 		this.signalingClient.on('sdpAnswer', async (answer) => {
 			// Add the SDP answer to the peer connection
-			this.logger.post(this.clientId, this.role, 'SDP', `[${this.role}] Received SDP answer`);
+			this.logger.post(
+				this.channelName,
+				this.clientId,
+				this.role,
+				'SDP',
+				`[${this.role}] Received SDP answer`
+			);
 			await this.peerConnection.setRemoteDescription(answer);
 		});
 
 		// As remote tracks are received, add them to the remote view
 		this.peerConnection.addEventListener('track', (event) => {
-			this.logger.post(this.clientId, this.role, 'WebRTC', `[${this.role}] Received remote track`);
+			this.logger.post(
+				this.channelName,
+				this.clientId,
+				this.role,
+				'WebRTC',
+				`[${this.role}] Received remote track`
+			);
 			if (this.remoteView.srcObject) {
 				return;
 			}
@@ -28,6 +40,7 @@ export default class Viewer extends KVSClient {
 		this.peerConnection.addEventListener('icecandidate', ({ candidate }) => {
 			if (candidate) {
 				this.logger.post(
+					this.channelName,
 					this.clientId,
 					this.role,
 					'ICE',
@@ -37,6 +50,7 @@ export default class Viewer extends KVSClient {
 				this.signalingClient.sendIceCandidate(candidate);
 			} else {
 				this.logger.post(
+					this.channelName,
 					this.clientId,
 					this.role,
 					'ICE',
@@ -45,11 +59,23 @@ export default class Viewer extends KVSClient {
 			}
 		});
 
-		this.logger.post(this.clientId, this.role, 'system', `[${this.role}] Initialized`);
+		this.logger.post(
+			this.channelName,
+			this.clientId,
+			this.role,
+			'system',
+			`[${this.role}] Initialized`
+		);
 	}
 
 	startWebRTC = async () => {
-		this.logger.post(this.clientId, this.role, 'SDP', `[${this.role}] Creating SDP offer`);
+		this.logger.post(
+			this.channelName,
+			this.clientId,
+			this.role,
+			'SDP',
+			`[${this.role}] Creating SDP offer`
+		);
 		await this.peerConnection.setLocalDescription(
 			await this.peerConnection.createOffer({
 				offerToReceiveAudio: true,
@@ -57,9 +83,21 @@ export default class Viewer extends KVSClient {
 			})
 		);
 
-		this.logger.post(this.clientId, this.role, 'SDP', `[${this.role}] Sending SDP offer`);
+		this.logger.post(
+			this.channelName,
+			this.clientId,
+			this.role,
+			'SDP',
+			`[${this.role}] Sending SDP offer`
+		);
 		this.signalingClient.sendSdpOffer(this.peerConnection.localDescription);
-		this.logger.post(this.clientId, this.role, 'ICE', `[${this.role}] Generating ICE candidates`);
+		this.logger.post(
+			this.channelName,
+			this.clientId,
+			this.role,
+			'ICE',
+			`[${this.role}] Generating ICE candidates`
+		);
 	};
 
 	stopWebRTC() {
@@ -78,7 +116,13 @@ export default class Viewer extends KVSClient {
 		const { ChannelARN } = (await KinesisSDK.getSignalingChannel(this.channelName)).ChannelInfo;
 		const iceServerList = await KinesisSDK.getIceServerList(ChannelARN, Role.VIEWER);
 
-		this.logger.post(this.clientId, this.role, 'WebRTC', `[${this.role}] Retry WebRTC`);
+		this.logger.post(
+			this.channelName,
+			this.clientId,
+			this.role,
+			'WebRTC',
+			`[${this.role}] Retry WebRTC`
+		);
 		this.peerConnection.setConfiguration({
 			iceServers: iceServerList,
 			iceTransportPolicy: this.turnOnly ? 'relay' : 'all'
@@ -91,9 +135,21 @@ export default class Viewer extends KVSClient {
 			})
 		);
 
-		this.logger.post(this.clientId, this.role, 'SDP', `[${this.role}] Sending SDP offer`);
+		this.logger.post(
+			this.channelName,
+			this.clientId,
+			this.role,
+			'SDP',
+			`[${this.role}] Sending SDP offer`
+		);
 		this.signalingClient.sendSdpOffer(this.peerConnection.localDescription);
-		this.logger.post(this.clientId, this.role, 'ICE', `[${this.role}] Generating ICE candidates`);
+		this.logger.post(
+			this.channelName,
+			this.clientId,
+			this.role,
+			'ICE',
+			`[${this.role}] Generating ICE candidates`
+		);
 		// this.peerConnection.restartIce();
 	}
 }

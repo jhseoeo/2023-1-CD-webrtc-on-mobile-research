@@ -6,8 +6,9 @@ export default class KVSLogger extends Logger {
 		await super.init(config.kvsLogServer + '/kvslog/ws');
 	}
 
-	async post(userId, class_, type, content) {
+	async post(channel, userId, class_, type, content) {
 		await super.post({
+			channel,
 			userId,
 			class: class_,
 			type,
