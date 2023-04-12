@@ -70,8 +70,7 @@
 	<button
 		on:click={async () => {
 			const c = await master.getCandidates();
-			console.log(await master.getCandidates());
-			candidate = JSON.stringify(c);
+			candidate = `type:${c.candidateType} | ip:${c.ip} | port:${c.port} | protocol:${c.protocol}`
 		}}>Show Candidates</button
 	><br />
 	iceConnectionState: <span bind:innerHTML={iceConnectionState} contenteditable="false" /><br />

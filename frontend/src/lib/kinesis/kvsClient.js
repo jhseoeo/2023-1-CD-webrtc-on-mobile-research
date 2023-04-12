@@ -140,12 +140,13 @@ export default class KVSClient {
 				stats.forEach((report) => {
 					if (report.type == 'candidate-pair' && report.nominated && report.state == 'succeeded') {
 						const candidate = stats.get(report.remoteCandidateId);
-						// return resolve({
-						// 	type: candidate.candidateType,
-						// 	ip: candidate.ip,
-						// 	port: candidate.port,
-						// 	protocol: candidate.protocol
-						// });
+						this.logger.post(
+							this.channelName,
+							this.clientId,
+							this.role,
+							'WebRTC',
+							`[${this.role}] connected candidate : ${JSON.stringify(candidate)}`
+						);
 						return resolve(candidate);
 					}
 				});

@@ -10,6 +10,11 @@ export default class Viewer extends KVSClient {
 	async init() {
 		await super.init();
 
+		this.stream = await navigator.mediaDevices.getUserMedia({
+			video: true,
+			audio: true
+		});
+
 		this.signalingClient.on('sdpAnswer', async (answer) => {
 			// Add the SDP answer to the peer connection
 			this.logger.post(
@@ -31,9 +36,9 @@ export default class Viewer extends KVSClient {
 				'WebRTC',
 				`[${this.role}] Received remote track`
 			);
-			if (this.remoteView.srcObject) {
-				return;
-			}
+			// if (this.remoteView.srcObject) {
+			// 	return;
+			// }
 			this.remoteView.srcObject = event.streams[0];
 		});
 
@@ -76,6 +81,11 @@ export default class Viewer extends KVSClient {
 			'SDP',
 			`[${this.role}] Creating SDP offer`
 		);
+
+		if (this.stream) {
+			this.stream.getTracks().forEach((track) => this.peerConnection.addTrack(track, this.stream));
+		}
+
 		await this.peerConnection.setLocalDescription(
 			await this.peerConnection.createOffer({
 				offerToReceiveAudio: true,
@@ -150,6 +160,5 @@ export default class Viewer extends KVSClient {
 			'ICE',
 			`[${this.role}] Generating ICE candidates`
 		);
-		// this.peerConnection.restartIce();
 	}
 }
