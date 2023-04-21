@@ -88,7 +88,16 @@
 			type="checkbox"
 			bind:checked={reportLogs}
 			on:change={() => {
-				viewer.toggleLogging(reportLogs);
+				viewer.toggleReportLogs(reportLogs);
+			}}
+		/><br />
+	</div>
+	<div class="options">
+		Save Logs<input
+			type="checkbox"
+			bind:checked={reportLogs}
+			on:change={() => {
+				viewer.toggleSaveLogs(reportLogs);
 			}}
 		/><br />
 	</div>
