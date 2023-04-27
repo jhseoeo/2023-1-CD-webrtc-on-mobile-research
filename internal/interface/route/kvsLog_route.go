@@ -23,7 +23,7 @@ func KVSLogRoutes(a *fiber.App, service services.KVSLogService) {
 			return err
 		}
 
-		err = service.SaveLog(c.Context(), data.Data)
+		err = service.SaveLog(c.Context(), data.Data, data.Save)
 		if err != nil {
 			return err
 		}
@@ -68,7 +68,7 @@ func KVSLogRoutes(a *fiber.App, service services.KVSLogService) {
 				return
 			}
 
-			err = service.SaveLog(context.Background(), message.Data)
+			err = service.SaveLog(context.Background(), message.Data, message.Save)
 			if err != nil {
 				fmt.Println(err)
 			}

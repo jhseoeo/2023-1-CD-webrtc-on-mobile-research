@@ -18,12 +18,17 @@ func NewKVSLogService(repoImpl repository.KVSLogRepository, kvsLogChannels *infr
 	return KVSLogService{kvsLogRepository: repoImpl, logChannels: kvsLogChannels}
 }
 
-func (k KVSLogService) SaveLog(ctx context.Context, kvsLog entity.KVSLog) error {
+func (k KVSLogService) SaveLog(ctx context.Context, kvsLog entity.KVSLog, toSave bool) error {
 	if os.Getenv("PRINT_CONSOLE") == "True" {
 		log.Println(kvsLog)
 	}
 	k.logChannels.Send(kvsLog.Channel, kvsLog.UserID, kvsLog)
-	return k.kvsLogRepository.Insert(ctx, kvsLog)
+
+	if toSave {
+		return k.kvsLogRepository.Insert(ctx, kvsLog)
+	} else {
+		return nil
+	}
 }
 
 func (k KVSLogService) GetAllLogs(ctx context.Context) ([]entity.KVSLog, error) {

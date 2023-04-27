@@ -5,5 +5,6 @@ import (
 )
 
 type LogRequest[T entity.LogType] struct {
-	Data T `json:"data"`
+	Save bool `json:"save"`
+	Data T    `json:"data"`
 }
