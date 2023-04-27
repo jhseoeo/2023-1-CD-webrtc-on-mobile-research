@@ -74,8 +74,7 @@
 	><button
 		on:click={async () => {
 			const c = await viewer.getCandidates();
-			console.log(await viewer.getCandidates());
-			candidate = JSON.stringify(c);
+			candidate = `type:${c.candidateType} | ip:${c.ip} | port:${c.port} | protocol:${c.protocol}`
 		}}>Show Candidates</button
 	><br />
 	iceConnectionState: <span bind:innerHTML={iceConnectionState} contenteditable="false" /><br />
@@ -89,7 +88,16 @@
 			type="checkbox"
 			bind:checked={reportLogs}
 			on:change={() => {
-				viewer.toggleLogging(reportLogs);
+				viewer.toggleReportLogs(reportLogs);
+			}}
+		/><br />
+	</div>
+	<div class="options">
+		Save Logs<input
+			type="checkbox"
+			bind:checked={reportLogs}
+			on:change={() => {
+				viewer.toggleSaveLogs(reportLogs);
 			}}
 		/><br />
 	</div>

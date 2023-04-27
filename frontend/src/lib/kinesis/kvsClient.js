@@ -15,7 +15,8 @@ export default class KVSClient {
 		this.role = role;
 		this.channelName = channelName;
 		this.clientId = userName;
-		this.logging = config.reportLogs;
+		this.reportLogs = config.reportLogs;
+		this.saveLogs = config.saveLogs;
 		this.printConsole = config.printConsole;
 		this.turnOnly = config.turnOnly;
 	}
@@ -25,7 +26,7 @@ export default class KVSClient {
 		const wssEndpoint = await KinesisSDK.getEndpoints(ChannelARN, 'WSS', this.role);
 		const iceServerList = await KinesisSDK.getIceServerList(ChannelARN, this.role);
 
-		this.logger = new KVSLogger(this.logging, this.printConsole);
+		this.logger = new KVSLogger(this.reportLogs, this.saveLogs, this.printConsole);
 		await this.logger.init();
 
 		this.signalingClient = new SignalingClient({
@@ -140,12 +141,13 @@ export default class KVSClient {
 				stats.forEach((report) => {
 					if (report.type == 'candidate-pair' && report.nominated && report.state == 'succeeded') {
 						const candidate = stats.get(report.remoteCandidateId);
-						// return resolve({
-						// 	type: candidate.candidateType,
-						// 	ip: candidate.ip,
-						// 	port: candidate.port,
-						// 	protocol: candidate.protocol
-						// });
+						this.logger.post(
+							this.channelName,
+							this.clientId,
+							this.role,
+							'WebRTC',
+							`[${this.role}] connected candidate : ${JSON.stringify(candidate)}`
+						);
 						return resolve(candidate);
 					}
 				});
@@ -166,9 +168,14 @@ export default class KVSClient {
 		this.connectionStateHandler = handler;
 	}
 
-	toggleLogging(onOff) {
-		this.logging = onOff;
-		if (this.logger) this.logger.toggleLogging(onOff);
+	toggleReportLogs(onOff) {
+		this.reportLogs = onOff;
+		if (this.logger) this.logger.toggleReportLogs(onOff);
+	}
+
+	toggleSaveLogs(onOff) {
+		this.saveLogs = onOff;
+		if (this.logger) this.logger.toggleSaveLogs(onOff);
 	}
 
 	togglePrintConsole(onOff) {

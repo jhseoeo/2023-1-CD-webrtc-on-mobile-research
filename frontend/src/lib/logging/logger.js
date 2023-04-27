@@ -1,13 +1,14 @@
 export default class Logger {
-	constructor(logging = true, printConsole = true) {
+	constructor(reportLogs, saveLogs, printConsole) {
 		this.opened = false;
-		this.logging = logging;
+		this.reportLogs = reportLogs;
+		this.saveLogs = saveLogs;
 		this.printConsole = printConsole;
 	}
 
 	init(addr) {
 		return new Promise((resolve, reject) => {
-			if (!this.logging) return resolve();
+			if (!this.reportLogs) return resolve();
 			try {
 				this.ws = new WebSocket(`${addr}`);
 			} catch (e) {
@@ -32,8 +33,8 @@ export default class Logger {
 
 	async post(data) {
 		if (this.printConsole) console.log(data.content);
-		if (this.logging)
-			if (this.opened) this.ws.send(JSON.stringify({ data }));
+		if (this.reportLogs)
+			if (this.opened) this.ws.send(JSON.stringify({ data, save: this.saveLogs }));
 			else console.error('ws not opened');
 	}
 
@@ -43,8 +44,12 @@ export default class Logger {
 		};
 	}
 
-	toggleLogging(onOff) {
-		this.logging = onOff;
+	toggleReportLogs(onOff) {
+		this.reportLogs = onOff;
+	}
+
+	toggleSaveLogs(onOff) {
+		this.saveLogs = onOff;
 	}
 
 	togglePrintConsole(onOff) {
