@@ -2,9 +2,10 @@ import { Role } from 'amazon-kinesis-video-streams-webrtc/lib/Role';
 import KVSClient from './kvsClient';
 
 export default class Master extends KVSClient {
-	constructor(channelName, userName, localStream) {
+	constructor(channelName, userName, localStream, retryMethod) {
 		super(Role.MASTER, channelName, userName);
 		this.localStream = localStream;
+		this.retryMethod = retryMethod;
 	}
 
 	async init() {
@@ -89,5 +90,11 @@ export default class Master extends KVSClient {
 			'system',
 			`[${this.role}] Initialized`
 		);
+	}
+
+	async registerIceConnectionStateHandler(handler) {
+		super.registerIceConnectionStateHandler(() => {
+			handler();
+		});
 	}
 }

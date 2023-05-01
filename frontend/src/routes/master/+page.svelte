@@ -6,6 +6,7 @@
 	let localView;
 	let localStream;
 	let master;
+	let retryMethod;
 
 	let kvsConnectionState = 'disconnected';
 	let iceConnectionState = 'not started';
@@ -24,7 +25,7 @@
 			audio: false
 		});
 		localView.srcObject = localStream;
-		master = new Master(data.get('channel'), data.get('username'), localStream);
+		master = new Master(data.get('channel'), data.get('username'), localStream, retryMethod);
 		master.registerKvsConnectionStateHandler((state) => {
 			kvsConnectionState = state;
 		});
@@ -118,6 +119,35 @@
 			/>
 		</div>
 	</span>
+	<br>
+	<fieldset>
+		<legend>Retry Method</legend>
+	
+		<div>
+		  <input type="radio" bind:group={retryMethod} name="retryMethod" value="no_retry" checked>
+		  <label for="no_retry">no_retry</label>
+		</div>
+	
+		<div>
+		  <input type="radio" bind:group={retryMethod} name="retryMethod" value="after_failed">
+		  <label for="after_failed">after_failed</label>
+		</div>
+	
+		<div>
+		  <input type="radio" bind:group={retryMethod} name="retryMethod" value="after_disconnected">
+		  <label for="after_disconnected">after_disconnected</label>
+		</div>
+
+		<div>
+			<input type="radio" bind:group={retryMethod} name="retryMethod" value="right_after_disconnected">
+			<label for="right_after_disconnected">right_after_disconnected</label>
+		  </div>
+
+		<div>
+			<input type="radio" bind:group={retryMethod} name="retryMethod" value="before_disconnected">
+			<label for="before_disconnected">before_disconnected</label>
+		</div>
+	</fieldset>
 </div>
 
 <style>

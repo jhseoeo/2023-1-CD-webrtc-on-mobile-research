@@ -5,6 +5,7 @@
 
 	let remoteView;
 	let viewer;
+	let retryMethod;
 
 	let kvsConnectionState = 'disconnected';
 	let iceConnectionState = 'not started';
@@ -18,7 +19,7 @@
 	onMount(async () => {
 		let data = new URLSearchParams(window.location.search)
 
-		viewer = new Viewer(data.get('channel'), data.get('username'), remoteView);
+		viewer = new Viewer(data.get('channel'), data.get('username'), remoteView, retryMethod);
 		viewer.registerKvsConnectionStateHandler((state) => {
 			kvsConnectionState = state;
 		});
@@ -121,6 +122,35 @@
 			}}
 		/>
 	</div>
+	<br>
+	<fieldset>
+		<legend>Retry Method</legend>
+	
+		<div>
+		  <input type="radio" bind:group={retryMethod} name="retryMethod" value="no_retry" checked>
+		  <label for="no_retry">no_retry</label>
+		</div>
+	
+		<div>
+		  <input type="radio" bind:group={retryMethod} name="retryMethod" value="after_failed">
+		  <label for="after_failed">after_failed</label>
+		</div>
+	
+		<div>
+		  <input type="radio" bind:group={retryMethod} name="retryMethod" value="after_disconnected">
+		  <label for="after_disconnected">after_disconnected</label>
+		</div>
+
+		<div>
+			<input type="radio" bind:group={retryMethod} name="retryMethod" value="right_after_disconnected">
+			<label for="right_after_disconnected">right_after_disconnected</label>
+		  </div>
+
+		<div>
+			<input type="radio" bind:group={retryMethod} name="retryMethod" value="before_disconnected">
+			<label for="before_disconnected">before_disconnected</label>
+		</div>
+	</fieldset>
 </div>
 
 <style>
