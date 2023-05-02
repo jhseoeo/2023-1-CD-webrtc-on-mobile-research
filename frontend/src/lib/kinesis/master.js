@@ -30,6 +30,8 @@ export default class Master extends KVSClient {
 						'ICE',
 						`[${this.role}] Generated ICE candidate : ${candidate.candidate}`
 					);
+
+					console.log(candidate.type, candidate.address, candidate.protocol);
 					this.signalingClient.sendIceCandidate(candidate, remoteClientId);
 				} else {
 					this.logger.post(
@@ -93,8 +95,8 @@ export default class Master extends KVSClient {
 	}
 
 	async registerIceConnectionStateHandler(handler) {
-		super.registerIceConnectionStateHandler(() => {
-			handler();
+		super.registerIceConnectionStateHandler((state) => {
+			handler(state);
 		});
 	}
 }

@@ -1,10 +1,12 @@
 import KinesisSDK from './kinesisSDK';
 import KVSClient from './kvsClient';
+import constants from './constants';
 import { Role } from 'amazon-kinesis-video-streams-webrtc/lib/Role';
 
 export default class Viewer extends KVSClient {
 	constructor(channelName, userName, remoteView, retryMethod) {
 		super(Role.VIEWER, channelName, userName);
+		this.connectionLevel = constants.ConnectionLevel.DIRECT_UDP;
 		this.remoteView = remoteView;
 		this.retryMethod = retryMethod;
 	}
@@ -53,6 +55,7 @@ export default class Viewer extends KVSClient {
 					`[${this.role}] Generated ICE candidate : ${candidate.candidate}`
 				);
 
+				console.log(candidate.type, candidate.address, candidate.protocol);
 				this.signalingClient.sendIceCandidate(candidate);
 			} else {
 				this.logger.post(
@@ -116,12 +119,22 @@ export default class Viewer extends KVSClient {
 	}
 
 	async registerIceConnectionStateHandler(handler) {
-		super.registerIceConnectionStateHandler(() => {
-			handler();
+		super.registerIceConnectionStateHandler((state) => {
+			handler(state);
 		});
 	}
 
 	async retryWebRTC() {
+		if (this.connectedKVS) this.connectKVS();
+
+		let level = constants.ConnectionLevel.DIRECT_UDP;
+		while (level < 4) {
+			level = this.getCurrentLevel() + 1;
+			await this.restart(level);
+		}
+	}
+
+	async restart(level) {
 		const { ChannelARN } = (await KinesisSDK.getSignalingChannel(this.channelName)).ChannelInfo;
 		const iceServerList = await KinesisSDK.getIceServerList(ChannelARN, Role.VIEWER);
 
@@ -132,10 +145,15 @@ export default class Viewer extends KVSClient {
 			'WebRTC',
 			`[${this.role}] Retry WebRTC`
 		);
+
+		this.connectionLevel = constants.ConnectionLevel.DIRECT;
+
 		this.peerConnection.setConfiguration({
 			iceServers: iceServerList,
-			iceTransportPolicy: this.turnOnly ? 'relay' : 'all'
+			iceTransportPolicy:
+				this.turnOnly || level === constants.ConnectionLevel.TURN_UDP ? 'relay' : 'all'
 		});
+
 		await this.peerConnection.setLocalDescription(
 			await this.peerConnection.createOffer({
 				offerToReceiveAudio: true,
@@ -149,7 +167,7 @@ export default class Viewer extends KVSClient {
 			this.clientId,
 			this.role,
 			'SDP',
-			`[${this.role}] Sending SDP offer`
+			`[${this.role}] Sending SDP Restart offer`
 		);
 		this.signalingClient.sendSdpOffer(this.peerConnection.localDescription);
 		this.logger.post(
@@ -159,5 +177,17 @@ export default class Viewer extends KVSClient {
 			'ICE',
 			`[${this.role}] Generating ICE candidates`
 		);
+	}
+
+	async getCurrentLevel() {
+		const candidate = await this.getCandidates();
+		if (candidate.candidateType === 'host' && candidate.protocol === 'udp')
+			return constants.ConnectionLevel.DIRECT_UDP;
+		else if (candidate.candidateType === 'srflx' && candidate.protocol === 'udp')
+			return constants.ConnectionLevel.STUN_UDP;
+		else if (candidate.candidateType === 'srflx' && candidate.protocol === 'tcp')
+			return constants.ConnectionLevel.STUN_TCP;
+		else if (candidate.candidateType === 'relay' && candidate.protocol === 'udp')
+			return constants.ConnectionLevel.TURN_UDP;
 	}
 }

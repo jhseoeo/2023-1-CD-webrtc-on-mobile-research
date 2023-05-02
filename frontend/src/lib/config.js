@@ -14,8 +14,8 @@ export default {
 	kinesisSecretAccessKey: PUBLIC_KINESIS_SECRET_ACCESS_KEY,
 	kvsLogServer: PUBLIC_LOG_SERVER_ADDRESS,
 
-	reportLogs: true,
-	saveLots: false,
+	reportLogs: false,
+	saveLogs: false,
 	printConsole: true,
 
 	turnOnly: false,

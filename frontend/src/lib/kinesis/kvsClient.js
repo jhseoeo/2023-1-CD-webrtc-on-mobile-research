@@ -15,6 +15,7 @@ export default class KVSClient {
 		this.role = role;
 		this.channelName = channelName;
 		this.clientId = userName;
+		this.connectedKVS = false;
 		this.reportLogs = config.reportLogs;
 		this.saveLogs = config.saveLogs;
 		this.printConsole = config.printConsole;
@@ -47,7 +48,10 @@ export default class KVSClient {
 		});
 
 		this.signalingClient.on('open', async () => {
-			if (this.KvsConnectionStateHandler) this.KvsConnectionStateHandler('connected');
+			if (this.KvsConnectionStateHandler) {
+				this.connectedKVS = true;
+				this.KvsConnectionStateHandler('connected');
+			}
 			this.logger.post(
 				this.channelName,
 				this.clientId,
@@ -71,7 +75,10 @@ export default class KVSClient {
 		});
 
 		this.signalingClient.on('close', () => {
-			if (this.KvsConnectionStateHandler) this.KvsConnectionStateHandler('disconnected');
+			if (this.KvsConnectionStateHandler) {
+				this.connectedKVS = false;
+				this.KvsConnectionStateHandler('disconnected');
+			}
 			this.logger.post(
 				this.channelName,
 				this.clientId,
@@ -140,15 +147,18 @@ export default class KVSClient {
 			this.peerConnection.getStats(null).then((stats) => {
 				stats.forEach((report) => {
 					if (report.type == 'candidate-pair' && report.nominated && report.state == 'succeeded') {
-						const candidate = stats.get(report.remoteCandidateId);
+						const localCandidate = stats.get(report.localCandidateId);
+						const remoteCandidate = stats.get(report.remoteCandidateId);
 						this.logger.post(
 							this.channelName,
 							this.clientId,
 							this.role,
 							'WebRTC',
-							`[${this.role}] connected candidate : ${JSON.stringify(candidate)}`
+							`[${this.role}] local candidate : ${JSON.stringify(
+								localCandidate
+							)} /// connected candidate : ${JSON.stringify(remoteCandidate)}`
 						);
-						return resolve(candidate);
+						return resolve({ localCandidate, remoteCandidate });
 					}
 				});
 				return reject('No succeeded candidate pair exist');

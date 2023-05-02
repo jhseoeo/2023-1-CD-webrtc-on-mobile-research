@@ -2,11 +2,12 @@
 	import { onMount } from 'svelte';
 	import Master from '$lib/kinesis/master';
 	import config from '$lib/config';
+	import constants from '$lib/kinesis/constants';
 
 	let localView;
 	let localStream;
 	let master;
-	let retryMethod;
+	let retryMethod = constants.RetryCondition.NO_RETRY;
 
 	let kvsConnectionState = 'disconnected';
 	let iceConnectionState = 'not started';
@@ -14,6 +15,7 @@
 	let candidate = '';
 
 	let reportLogs = config.reportLogs;
+	let saveLogs = config.saveLogs;
 	let printConsole = config.printConsole;
 	let turnOnly = config.turnOnly;
 
@@ -70,13 +72,16 @@
 	>
 	<button
 		on:click={async () => {
-			const c = await master.getCandidates();
-			candidate = `type:${c.candidateType} | ip:${c.ip} | port:${c.port} | protocol:${c.protocol}`
+			const {localCandidate, remoteCandidate} = await master.getCandidates();
+			candidate = `
+			local:${localCandidate.candidateType} | ip:${localCandidate.ip} | port:${localCandidate.port} | protocol:${localCandidate.protocol}
+			<br>
+			remote:${remoteCandidate.candidateType} | ip:${remoteCandidate.ip} | port:${remoteCandidate.port} | protocol:${remoteCandidate.protocol}`
 		}}>Show Candidates</button
 	><br />
 	iceConnectionState: <span bind:innerHTML={iceConnectionState} contenteditable="false" /><br />
 	connectionState: <span bind:innerHTML={connectionState} contenteditable="false" /><br />
-	candidates: <span bind:innerHTML={candidate} contenteditable="false" />
+	candidates <br> <span bind:innerHTML={candidate} contenteditable="false" />
 	<span>
 		<hr />
 
@@ -92,9 +97,9 @@
 		<div class="options">
 			Save Logs<input
 				type="checkbox"
-				bind:checked={reportLogs}
+				bind:checked={saveLogs}
 				on:change={() => {
-					master.toggleSaveLogs(reportLogs);
+					master.toggleSaveLogs(saveLogs);
 				}}
 			/><br />
 		</div>
@@ -124,27 +129,27 @@
 		<legend>Retry Method</legend>
 	
 		<div>
-		  <input type="radio" bind:group={retryMethod} name="retryMethod" value="no_retry" checked>
+		  <input type="radio" bind:group={retryMethod} name="retryMethod" value={constants.RetryCondition.NO_RETRY} checked>
 		  <label for="no_retry">no_retry</label>
 		</div>
 	
 		<div>
-		  <input type="radio" bind:group={retryMethod} name="retryMethod" value="after_failed">
+		  <input type="radio" bind:group={retryMethod} name="retryMethod" value={constants.RetryCondition.AFTER_FAILED}>
 		  <label for="after_failed">after_failed</label>
 		</div>
 	
 		<div>
-		  <input type="radio" bind:group={retryMethod} name="retryMethod" value="after_disconnected">
+		  <input type="radio" bind:group={retryMethod} name="retryMethod" value={constants.RetryCondition.AFTER_DISCONNECTED}>
 		  <label for="after_disconnected">after_disconnected</label>
 		</div>
 
 		<div>
-			<input type="radio" bind:group={retryMethod} name="retryMethod" value="right_after_disconnected">
+			<input type="radio" bind:group={retryMethod} name="retryMethod" value={constants.RetryCondition.RIGHT_AFTER_DISCONNECTED}>
 			<label for="right_after_disconnected">right_after_disconnected</label>
 		  </div>
 
 		<div>
-			<input type="radio" bind:group={retryMethod} name="retryMethod" value="before_disconnected">
+			<input type="radio" bind:group={retryMethod} name="retryMethod" value={constants.RetryCondition.BEFORE_DISCONNECTED}>
 			<label for="before_disconnected">before_disconnected</label>
 		</div>
 	</fieldset>
