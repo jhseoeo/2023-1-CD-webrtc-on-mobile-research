@@ -20,6 +20,8 @@ export default class KVSClient {
 		this.saveLogs = config.saveLogs;
 		this.printConsole = config.printConsole;
 		this.turnOnly = config.turnOnly;
+		this.tracks = [];
+		this.receivedTraffics = 0;
 	}
 
 	async init() {
@@ -163,6 +165,30 @@ export default class KVSClient {
 				});
 				return reject('No succeeded candidate pair exist');
 			});
+		});
+	}
+
+	getReceivedTraffics(trackId) {
+		return new Promise((resolve, reject) => {
+			this.peerConnection
+				.getStats(null)
+				.then((stats) => {
+					stats.forEach((report) => {
+						if (
+							report.type === 'inbound-rtp' &&
+							report.kind === 'video' &&
+							trackId === report.trackIdentifier
+						) {
+							const result = report.bytesReceived - this.receivedTraffics;
+							this.receivedTraffics = report.bytesReceived;
+							return resolve(result);
+						}
+					});
+					return reject('There is no stats type "inbound-rtp"');
+				})
+				.catch((e) => {
+					return reject(e);
+				});
 		});
 	}
 

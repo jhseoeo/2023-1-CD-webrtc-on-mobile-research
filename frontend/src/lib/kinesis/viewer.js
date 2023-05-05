@@ -6,9 +6,11 @@ import { Role } from 'amazon-kinesis-video-streams-webrtc/lib/Role';
 export default class Viewer extends KVSClient {
 	constructor(channelName, userName, remoteView, retryMethod) {
 		super(Role.VIEWER, channelName, userName);
-		this.connectionLevel = constants.ConnectionLevel.DIRECT_UDP;
+		this.connectionLevel = constants.ConnectionLevel.DIRECT;
 		this.remoteView = remoteView;
 		this.retryMethod = retryMethod;
+		this.remoteStream;
+		this.connectionObserver;
 	}
 	async init() {
 		await super.init();
@@ -42,6 +44,7 @@ export default class Viewer extends KVSClient {
 			// if (this.remoteView.srcObject) {
 			// 	return;
 			// }
+			this.remoteStream = event.streams[0];
 			this.remoteView.srcObject = event.streams[0];
 		});
 
@@ -87,7 +90,16 @@ export default class Viewer extends KVSClient {
 		);
 
 		if (this.stream) {
-			this.stream.getTracks().forEach((track) => this.peerConnection.addTrack(track, this.stream));
+			if (this.tracks.length !== 0) {
+				this.tracks.forEach((track) => {
+					this.peerConnection.removeTrack(track);
+				});
+				this.tracks = [];
+			}
+
+			this.stream
+				.getTracks()
+				.forEach((track) => this.tracks.push(this.peerConnection.addTrack(track, this.stream)));
 		}
 
 		await this.peerConnection.setLocalDescription(
@@ -112,6 +124,9 @@ export default class Viewer extends KVSClient {
 			'ICE',
 			`[${this.role}] Generating ICE candidates`
 		);
+
+		this.lastRetry = new Date();
+		this.startConnectionObserver();
 	};
 
 	stopWebRTC() {
@@ -125,16 +140,16 @@ export default class Viewer extends KVSClient {
 	}
 
 	async retryWebRTC() {
-		if (this.connectedKVS) this.connectKVS();
+		if (!this.connectedKVS) this.connectKVS();
+		let level = constants.ConnectionLevel.DIRECT;
+		this.receivedTraffics = 0;
+		this.remoteStream = [];
 
-		let level = constants.ConnectionLevel.DIRECT_UDP;
-		while (level < 4) {
-			level = this.getCurrentLevel() + 1;
-			await this.restart(level);
-		}
-	}
+		const now = new Date();
+		if (now - this.lastRetry < 1000 * 15) level = this.getCurrentLevel() + 1;
+		if (level >= 2) return;
+		this.lastRetry = now;
 
-	async restart(level) {
 		const { ChannelARN } = (await KinesisSDK.getSignalingChannel(this.channelName)).ChannelInfo;
 		const iceServerList = await KinesisSDK.getIceServerList(ChannelARN, Role.VIEWER);
 
@@ -148,10 +163,23 @@ export default class Viewer extends KVSClient {
 
 		this.connectionLevel = constants.ConnectionLevel.DIRECT;
 
+		if (this.stream) {
+			if (this.tracks.length !== 0) {
+				this.tracks.forEach((track) => {
+					this.peerConnection.removeTrack(track);
+				});
+				this.tracks = [];
+			}
+
+			this.stream
+				.getTracks()
+				.forEach((track) => this.tracks.push(this.peerConnection.addTrack(track, this.stream)));
+		}
+
 		this.peerConnection.setConfiguration({
 			iceServers: iceServerList,
 			iceTransportPolicy:
-				this.turnOnly || level === constants.ConnectionLevel.TURN_UDP ? 'relay' : 'all'
+				this.turnOnly || level === constants.ConnectionLevel.TURN ? 'relay' : 'all'
 		});
 
 		await this.peerConnection.setLocalDescription(
@@ -177,17 +205,36 @@ export default class Viewer extends KVSClient {
 			'ICE',
 			`[${this.role}] Generating ICE candidates`
 		);
+
+		this.startConnectionObserver();
 	}
 
 	async getCurrentLevel() {
 		const candidate = await this.getCandidates();
-		if (candidate.candidateType === 'host' && candidate.protocol === 'udp')
-			return constants.ConnectionLevel.DIRECT_UDP;
-		else if (candidate.candidateType === 'srflx' && candidate.protocol === 'udp')
-			return constants.ConnectionLevel.STUN_UDP;
-		else if (candidate.candidateType === 'srflx' && candidate.protocol === 'tcp')
-			return constants.ConnectionLevel.STUN_TCP;
-		else if (candidate.candidateType === 'relay' && candidate.protocol === 'udp')
-			return constants.ConnectionLevel.TURN_UDP;
+		// if (candidate.candidateType === 'host' && candidate.protocol === 'udp')
+		// 	return constants.ConnectionLevel.DIRECT;
+		// else if (candidate.candidateType === 'srflx' && candidate.protocol === 'udp')
+		// 	return constants.ConnectionLevel.STUN_UDP;
+		// else if (candidate.candidateType === 'srflx' && candidate.protocol === 'tcp')
+		// 	return constants.ConnectionLevel.STUN_TCP;
+		// else if (candidate.candidateType === 'relay' && candidate.protocol === 'udp')
+		// 	return constants.ConnectionLevel.TURN_UDP;
+
+		if (candidate.candidateType === 'relay' && candidate.protocol === 'udp') {
+			return constants.ConnectionLevel.TURN;
+		} else {
+			return constants.ConnectionLevel.DIRECT;
+		}
+	}
+
+	async startConnectionObserver() {
+		if (this.connectionObserver) clearInterval(this.connectionObserver);
+		this.connectionObserver = setInterval(async () => {
+			let videoStream = this.remoteStream.getTracks().filter((v) => {
+				return v.kind === 'video';
+			});
+
+			console.log(await this.getReceivedTraffics(videoStream[0].id));
+		}, 1000);
 	}
 }

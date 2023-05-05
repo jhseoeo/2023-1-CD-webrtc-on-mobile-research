@@ -21,34 +21,45 @@ export default class Master extends KVSClient {
 			);
 
 			// Send any ICE candidates to the other peer
-			this.peerConnection.onicecandidate = ({ candidate }) => {
-				if (candidate) {
-					this.logger.post(
-						this.channelName,
-						this.clientId,
-						this.role,
-						'ICE',
-						`[${this.role}] Generated ICE candidate : ${candidate.candidate}`
-					);
+			if (!this.peerConnection.onicecandidate)
+				this.peerConnection.onicecandidate = ({ candidate }) => {
+					if (candidate) {
+						this.logger.post(
+							this.channelName,
+							this.clientId,
+							this.role,
+							'ICE',
+							`[${this.role}] Generated ICE candidate : ${candidate.candidate}`
+						);
 
-					console.log(candidate.type, candidate.address, candidate.protocol);
-					this.signalingClient.sendIceCandidate(candidate, remoteClientId);
-				} else {
-					this.logger.post(
-						this.channelName,
-						this.clientId,
-						this.role,
-						'ICE',
-						`[${this.role}] All ICE candidates have been generated`
-					);
-				}
-			};
+						console.log(candidate.type, candidate.address, candidate.protocol);
+						this.signalingClient.sendIceCandidate(candidate, remoteClientId);
+					} else {
+						this.logger.post(
+							this.channelName,
+							this.clientId,
+							this.role,
+							'ICE',
+							`[${this.role}] All ICE candidates have been generated`
+						);
+					}
+				};
 
 			// If there's no video/audio, this.localStream will be null. So, we should skip adding the tracks from it.
 			if (this.localStream) {
+				// for retry
+				if (this.tracks.length !== 0) {
+					this.tracks.forEach((track) => {
+						this.peerConnection.removeTrack(track);
+					});
+					this.tracks = [];
+				}
+
 				this.localStream
 					.getTracks()
-					.forEach((track) => this.peerConnection.addTrack(track, this.localStream));
+					.forEach((track) =>
+						this.tracks.push(this.peerConnection.addTrack(track, this.localStream))
+					);
 			}
 			await this.peerConnection.setRemoteDescription(offer);
 
