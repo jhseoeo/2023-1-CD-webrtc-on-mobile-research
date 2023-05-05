@@ -147,23 +147,30 @@ export default class KVSClient {
 	getCandidates() {
 		return new Promise((resolve, reject) => {
 			this.peerConnection.getStats(null).then((stats) => {
+				let candidatePairs = [];
 				stats.forEach((report) => {
-					if (report.type == 'candidate-pair' && report.nominated && report.state == 'succeeded') {
-						const localCandidate = stats.get(report.localCandidateId);
-						const remoteCandidate = stats.get(report.remoteCandidateId);
-						this.logger.post(
-							this.channelName,
-							this.clientId,
-							this.role,
-							'WebRTC',
-							`[${this.role}] local candidate : ${JSON.stringify(
-								localCandidate
-							)} /// connected candidate : ${JSON.stringify(remoteCandidate)}`
-						);
-						return resolve({ localCandidate, remoteCandidate });
-					}
+					if (report.type == 'candidate-pair' && report.nominated && report.state == 'succeeded')
+						candidatePairs.push(report);
 				});
-				return reject('No succeeded candidate pair exist');
+
+				if (candidatePairs.length === 0) return reject('No succeeded candidate pair exist');
+
+				candidatePairs.sort((a, b) => {
+					return b.lastPacketReceivedTimestamp - a.lastPacketReceivedTimestamp;
+				});
+
+				const localCandidate = stats.get(candidatePairs[0].localCandidateId);
+				const remoteCandidate = stats.get(candidatePairs[0].remoteCandidateId);
+				this.logger.post(
+					this.channelName,
+					this.clientId,
+					this.role,
+					'WebRTC',
+					`[${this.role}] local candidate : ${JSON.stringify(
+						localCandidate
+					)} /// connected candidate : ${JSON.stringify(remoteCandidate)}`
+				);
+				return resolve({ localCandidate, remoteCandidate });
 			});
 		});
 	}

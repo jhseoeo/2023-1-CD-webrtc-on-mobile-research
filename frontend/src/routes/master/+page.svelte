@@ -31,7 +31,7 @@
 		master.registerKvsConnectionStateHandler((state) => {
 			kvsConnectionState = state;
 		});
-		master.registerIceConnectionStateHandler(async (state) => {
+		master.registerIceConnectionStateHandler((state) => {
 			iceConnectionState = state;
 		});
 		master.registerConnectionStateHandler((state) => {

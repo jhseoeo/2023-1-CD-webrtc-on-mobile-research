@@ -11,6 +11,7 @@
 	let kvsConnectionState = 'disconnected';
 	let iceConnectionState = 'not started';
 	let connectionState = 'not started';
+	let receivedBytes = 0;
 	let candidate = '';
 
 	let reportLogs = config.reportLogs;
@@ -25,12 +26,15 @@
 		viewer.registerKvsConnectionStateHandler((state) => {
 			kvsConnectionState = state;
 		});
-		viewer.registerIceConnectionStateHandler(async (state) => {
+		viewer.registerIceConnectionStateHandler((state) => {
 			iceConnectionState = state;
 		});
 		viewer.registerConnectionStateHandler((state) => {
 			connectionState = state;
 		});
+		viewer.registerConnectionObserverHandler((bytes) => {
+			receivedBytes = bytes;
+		})
 	});
 </script>
 
@@ -71,10 +75,6 @@
 		}}>Stop</button
 	>
 	<button
-		on:click={() => {
-			viewer.retryWebRTC();
-		}}>Restart</button
-	><button
 	on:click={async () => {
 		const {localCandidate, remoteCandidate} = await viewer.getCandidates();
 		candidate = `
@@ -85,7 +85,15 @@
 	><br />
 	iceConnectionState: <span bind:innerHTML={iceConnectionState} contenteditable="false" /><br />
 	connectionState: <span bind:innerHTML={connectionState} contenteditable="false" /><br />
-	candidates <br> <span bind:innerHTML={candidate} contenteditable="false" />
+	receivedBytes: <span bind:innerHTML={receivedBytes} contenteditable="false" /><br />
+	candidates <br> <span bind:innerHTML={candidate} contenteditable="false" /><br />
+
+	<button on:click={() => {
+		viewer.retryWebRTC();
+	}}>Retry Connection</button>
+	<button on:click={() => {
+		viewer.restartIce();
+	}}>Restart ICE</button>
 
 	<hr />
 

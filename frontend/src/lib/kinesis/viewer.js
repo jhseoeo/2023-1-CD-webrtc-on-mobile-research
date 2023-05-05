@@ -9,7 +9,7 @@ export default class Viewer extends KVSClient {
 		this.connectionLevel = constants.ConnectionLevel.DIRECT;
 		this.remoteView = remoteView;
 		this.retryMethod = retryMethod;
-		this.remoteStream;
+		this.remoteStream = null;
 		this.connectionObserver;
 	}
 	async init() {
@@ -143,7 +143,7 @@ export default class Viewer extends KVSClient {
 		if (!this.connectedKVS) this.connectKVS();
 		let level = constants.ConnectionLevel.DIRECT;
 		this.receivedTraffics = 0;
-		this.remoteStream = [];
+		this.remoteStream = null;
 
 		const now = new Date();
 		if (now - this.lastRetry < 1000 * 15) level = this.getCurrentLevel() + 1;
@@ -209,6 +209,10 @@ export default class Viewer extends KVSClient {
 		this.startConnectionObserver();
 	}
 
+	async restartIce() {
+		this.peerConnection.restartIce();
+	}
+
 	async getCurrentLevel() {
 		const candidate = await this.getCandidates();
 		// if (candidate.candidateType === 'host' && candidate.protocol === 'udp')
@@ -227,6 +231,10 @@ export default class Viewer extends KVSClient {
 		}
 	}
 
+	registerConnectionObserverHandler(handler) {
+		this.ConnectionObserverHandler = handler;
+	}
+
 	async startConnectionObserver() {
 		if (this.connectionObserver) clearInterval(this.connectionObserver);
 		this.connectionObserver = setInterval(async () => {
@@ -234,7 +242,8 @@ export default class Viewer extends KVSClient {
 				return v.kind === 'video';
 			});
 
-			console.log(await this.getReceivedTraffics(videoStream[0].id));
+			let receivedBytes = await this.getReceivedTraffics(videoStream[0].id);
+			this.ConnectionObserverHandler(receivedBytes);
 		}, 1000);
 	}
 }
