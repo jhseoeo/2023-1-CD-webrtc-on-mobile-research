@@ -1,6 +1,6 @@
 <script>
 	import { onMount } from "svelte";
-	import KVSLogReceiver from "$lib/logging/kvsLogReceiver";
+	import KVSLogReceiver from "$lib/logger/kvsLogReceiver";
 
 	let logSpace = "";
 	let data;

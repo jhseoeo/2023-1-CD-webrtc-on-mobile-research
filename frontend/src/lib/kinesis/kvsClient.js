@@ -175,27 +175,25 @@ export default class KVSClient {
 		});
 	}
 
-	getReceivedTraffics(trackId) {
+	getReceivedTraffics() {
 		return new Promise((resolve, reject) => {
-			this.peerConnection
-				.getStats(null)
-				.then((stats) => {
-					stats.forEach((report) => {
-						if (
-							report.type === 'inbound-rtp' &&
-							report.kind === 'video' &&
-							trackId === report.trackIdentifier
-						) {
-							const result = report.bytesReceived - this.receivedTraffics;
-							this.receivedTraffics = report.bytesReceived;
-							return resolve(result);
-						}
-					});
-					return reject('There is no stats type "inbound-rtp"');
-				})
-				.catch((e) => {
-					return reject(e);
+			this.peerConnection.getStats(null).then((stats) => {
+				let candidatePairs = [];
+				stats.forEach((report) => {
+					if (report.type == 'candidate-pair' && report.nominated && report.state == 'succeeded')
+						candidatePairs.push(report);
 				});
+
+				if (candidatePairs.length === 0) return reject('No succeeded candidate pair exist');
+
+				candidatePairs.sort((a, b) => {
+					return b.lastPacketReceivedTimestamp - a.lastPacketReceivedTimestamp;
+				});
+
+				const result = candidatePairs[0].packetsReceived - this.receivedTraffics;
+				this.receivedTraffics = candidatePairs[0].packetsReceived;
+				return resolve(result);
+			});
 		});
 	}
 

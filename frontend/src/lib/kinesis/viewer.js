@@ -9,7 +9,6 @@ export default class Viewer extends KVSClient {
 		this.connectionLevel = constants.ConnectionLevel.DIRECT;
 		this.remoteView = remoteView;
 		this.retryMethod = retryMethod;
-		this.remoteStream = null;
 		this.connectionObserver;
 	}
 	async init() {
@@ -44,7 +43,7 @@ export default class Viewer extends KVSClient {
 			// if (this.remoteView.srcObject) {
 			// 	return;
 			// }
-			this.remoteStream = event.streams[0];
+			console.log(event.streams[0].getTracks());
 			this.remoteView.srcObject = event.streams[0];
 		});
 
@@ -143,15 +142,20 @@ export default class Viewer extends KVSClient {
 		if (!this.connectedKVS) this.connectKVS();
 		let level = constants.ConnectionLevel.DIRECT;
 		this.receivedTraffics = 0;
-		this.remoteStream = null;
 
 		const now = new Date();
-		if (now - this.lastRetry < 1000 * 15) level = this.getCurrentLevel() + 1;
-		if (level >= 2) return;
+		// if (now - this.lastRetry < 1000 * 15) level = this.getCurrentLevel() + 1;
+		// if (level >= 2) return;
 		this.lastRetry = now;
 
-		const { ChannelARN } = (await KinesisSDK.getSignalingChannel(this.channelName)).ChannelInfo;
-		const iceServerList = await KinesisSDK.getIceServerList(ChannelARN, Role.VIEWER);
+		let ChannelARN, iceServerList;
+		try {
+			ChannelARN = (await KinesisSDK.getSignalingChannel(this.channelName)).ChannelInfo.ChannelARN;
+			iceServerList = await KinesisSDK.getIceServerList(ChannelARN, Role.VIEWER);
+		} catch (e) {
+			alert('unable to restart!');
+			return;
+		}
 
 		this.logger.post(
 			this.channelName,
@@ -161,7 +165,7 @@ export default class Viewer extends KVSClient {
 			`[${this.role}] Retry WebRTC`
 		);
 
-		this.connectionLevel = constants.ConnectionLevel.DIRECT;
+		this.connectionLevel = level;
 
 		if (this.stream) {
 			if (this.tracks.length !== 0) {
@@ -179,7 +183,8 @@ export default class Viewer extends KVSClient {
 		this.peerConnection.setConfiguration({
 			iceServers: iceServerList,
 			iceTransportPolicy:
-				this.turnOnly || level === constants.ConnectionLevel.TURN ? 'relay' : 'all'
+				// this.turnOnly || level === constants.ConnectionLevel.TURN ? 'relay' : 'all'
+				this.turnOnly ? 'relay' : 'all'
 		});
 
 		await this.peerConnection.setLocalDescription(
@@ -206,7 +211,7 @@ export default class Viewer extends KVSClient {
 			`[${this.role}] Generating ICE candidates`
 		);
 
-		this.startConnectionObserver();
+		await this.startConnectionObserver();
 	}
 
 	async restartIce() {
@@ -214,7 +219,12 @@ export default class Viewer extends KVSClient {
 	}
 
 	async getCurrentLevel() {
-		const candidate = await this.getCandidates();
+		let candidate;
+		try {
+			candidate = (await this.getCandidates()).localCandidate;
+		} catch (e) {
+			return;
+		}
 		// if (candidate.candidateType === 'host' && candidate.protocol === 'udp')
 		// 	return constants.ConnectionLevel.DIRECT;
 		// else if (candidate.candidateType === 'srflx' && candidate.protocol === 'udp')
@@ -238,11 +248,7 @@ export default class Viewer extends KVSClient {
 	async startConnectionObserver() {
 		if (this.connectionObserver) clearInterval(this.connectionObserver);
 		this.connectionObserver = setInterval(async () => {
-			let videoStream = this.remoteStream.getTracks().filter((v) => {
-				return v.kind === 'video';
-			});
-
-			let receivedBytes = await this.getReceivedTraffics(videoStream[0].id);
+			let receivedBytes = await this.getReceivedTraffics();
 			this.ConnectionObserverHandler(receivedBytes);
 		}, 1000);
 	}
