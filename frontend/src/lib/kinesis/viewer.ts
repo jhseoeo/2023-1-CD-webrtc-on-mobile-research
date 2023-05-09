@@ -143,20 +143,6 @@ export default class Viewer extends KVSClient {
 
 		this.connectionLevel = level;
 
-		if (this.localStream) {
-			if (this.tracks.length !== 0) {
-				this.tracks.forEach((track) => {
-					this.peerConnection?.removeTrack(track);
-				});
-				this.tracks = [];
-			}
-
-			this.localStream.getTracks().forEach((track) => {
-				const sender = this.peerConnection?.addTrack(track, this.localStream);
-				if (sender) this.tracks.push(sender);
-			});
-		}
-
 		this.peerConnection?.setConfiguration({
 			iceServers: iceServerList,
 			iceTransportPolicy:

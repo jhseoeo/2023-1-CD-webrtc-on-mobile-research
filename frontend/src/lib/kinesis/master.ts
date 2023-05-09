@@ -55,16 +55,7 @@ export default class Master extends KVSClient {
 				};
 			}
 
-			// If there's no video/audio, this.localStream will be null. So, we should skip adding the tracks from it.
-			if (this.peerConnection !== null && this.localStream) {
-				// for retry
-				if (this.tracks.length !== 0) {
-					this.tracks.forEach((track) => {
-						this.peerConnection?.removeTrack(track);
-					});
-					this.tracks = [];
-				}
-
+			if (this.localStream && this.tracks.length === 0) {
 				this.localStream.getTracks().forEach((track) => {
 					const sender = this.peerConnection?.addTrack(track, this.localStream);
 					if (sender) this.tracks.push(sender);
