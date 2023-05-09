@@ -1,39 +1,53 @@
 import KinesisSDK from './kinesisSDK';
 import KVSClient from './kvsClient';
-import constants from './constants';
+import { RetryCondition, ConnectionLevel } from './constants';
 import { Role } from 'amazon-kinesis-video-streams-webrtc/lib/Role';
+import type KVSLogger from '$lib/logger/kvsLogger';
 
 export default class Viewer extends KVSClient {
-	constructor(channelName, userName, remoteView, retryMethod) {
-		super(Role.VIEWER, channelName, userName);
-		this.connectionLevel = constants.ConnectionLevel.DIRECT;
+	connectionLevel: ConnectionLevel;
+	remoteView: HTMLVideoElement;
+	localStream: MediaStream;
+	retryMethod: RetryCondition;
+	lastRetry: Date | null;
+	connectionObserver: NodeJS.Timer | null;
+	connectionObserverHandler: { (receivedBytes: number): void } | null;
+
+	constructor(
+		channelName: string,
+		userName: string,
+		localStream: MediaStream,
+		remoteView: HTMLVideoElement,
+		retryMethod: RetryCondition,
+		logger: KVSLogger
+	) {
+		super(Role.VIEWER, channelName, userName, logger);
+		this.connectionLevel = ConnectionLevel.DIRECT;
 		this.remoteView = remoteView;
+		this.localStream = localStream;
 		this.retryMethod = retryMethod;
-		this.connectionObserver;
+		this.lastRetry = null;
+		this.connectionObserver = null;
+		this.connectionObserverHandler = null;
 	}
 	async init() {
 		await super.init();
 
-		this.stream = await navigator.mediaDevices.getUserMedia({
-			video: true,
-			audio: true
-		});
-
-		this.signalingClient.on('sdpAnswer', async (answer) => {
+		this.signalingClient?.on('sdpAnswer', async (answer) => {
 			// Add the SDP answer to the peer connection
-			this.logger.post(
+			this.logger?.postLog(
 				this.channelName,
 				this.clientId,
 				this.role,
 				'SDP',
 				`[${this.role}] Received SDP answer`
 			);
-			await this.peerConnection.setRemoteDescription(answer);
+			await this.peerConnection?.setRemoteDescription(answer);
 		});
 
 		// As remote tracks are received, add them to the remote view
-		this.peerConnection.addEventListener('track', (event) => {
-			this.logger.post(
+		this.peerConnection?.addEventListener('track', (event) => {
+			this.logger?.postLog(
 				this.channelName,
 				this.clientId,
 				this.role,
@@ -47,9 +61,9 @@ export default class Viewer extends KVSClient {
 			this.remoteView.srcObject = event.streams[0];
 		});
 
-		this.peerConnection.addEventListener('icecandidate', ({ candidate }) => {
+		this.peerConnection?.addEventListener('icecandidate', ({ candidate }) => {
 			if (candidate) {
-				this.logger.post(
+				this.logger?.postLog(
 					this.channelName,
 					this.clientId,
 					this.role,
@@ -58,9 +72,9 @@ export default class Viewer extends KVSClient {
 				);
 
 				console.log(candidate.type, candidate.address, candidate.protocol);
-				this.signalingClient.sendIceCandidate(candidate);
+				this.signalingClient?.sendIceCandidate(candidate);
 			} else {
-				this.logger.post(
+				this.logger?.postLog(
 					this.channelName,
 					this.clientId,
 					this.role,
@@ -70,7 +84,7 @@ export default class Viewer extends KVSClient {
 			}
 		});
 
-		this.logger.post(
+		this.logger?.postLog(
 			this.channelName,
 			this.clientId,
 			this.role,
@@ -80,7 +94,7 @@ export default class Viewer extends KVSClient {
 	}
 
 	startWebRTC = async () => {
-		this.logger.post(
+		this.logger?.postLog(
 			this.channelName,
 			this.clientId,
 			this.role,
@@ -88,35 +102,37 @@ export default class Viewer extends KVSClient {
 			`[${this.role}] Creating SDP offer`
 		);
 
-		if (this.stream) {
+		if (this.localStream) {
 			if (this.tracks.length !== 0) {
 				this.tracks.forEach((track) => {
-					this.peerConnection.removeTrack(track);
+					this.peerConnection?.removeTrack(track);
 				});
 				this.tracks = [];
 			}
 
-			this.stream
-				.getTracks()
-				.forEach((track) => this.tracks.push(this.peerConnection.addTrack(track, this.stream)));
+			this.localStream?.getTracks().forEach((track) => {
+				const sender = this.peerConnection?.addTrack(track, this.localStream);
+				if (sender) this.tracks.push(sender);
+			});
 		}
 
-		await this.peerConnection.setLocalDescription(
-			await this.peerConnection.createOffer({
+		await this.peerConnection?.setLocalDescription(
+			await this.peerConnection?.createOffer({
 				offerToReceiveAudio: true,
 				offerToReceiveVideo: true
 			})
 		);
 
-		this.logger.post(
+		this.logger?.postLog(
 			this.channelName,
 			this.clientId,
 			this.role,
 			'SDP',
 			`[${this.role}] Sending SDP offer`
 		);
-		this.signalingClient.sendSdpOffer(this.peerConnection.localDescription);
-		this.logger.post(
+		if (this.peerConnection !== null && this.peerConnection.localDescription)
+			this.signalingClient?.sendSdpOffer(this.peerConnection.localDescription);
+		this.logger?.postLog(
 			this.channelName,
 			this.clientId,
 			this.role,
@@ -129,18 +145,12 @@ export default class Viewer extends KVSClient {
 	};
 
 	stopWebRTC() {
-		this.peerConnection.close();
-	}
-
-	async registerIceConnectionStateHandler(handler) {
-		super.registerIceConnectionStateHandler((state) => {
-			handler(state);
-		});
+		this.peerConnection?.close();
 	}
 
 	async retryWebRTC() {
 		if (!this.connectedKVS) this.connectKVS();
-		let level = constants.ConnectionLevel.DIRECT;
+		const level = ConnectionLevel.DIRECT;
 		this.receivedTraffics = 0;
 
 		const now = new Date();
@@ -150,14 +160,15 @@ export default class Viewer extends KVSClient {
 
 		let ChannelARN, iceServerList;
 		try {
-			ChannelARN = (await KinesisSDK.getSignalingChannel(this.channelName)).ChannelInfo.ChannelARN;
+			ChannelARN = (await KinesisSDK.getSignalingChannel(this.channelName)).ChannelInfo?.ChannelARN;
+			if (ChannelARN === undefined) return alert('Error on initialize');
 			iceServerList = await KinesisSDK.getIceServerList(ChannelARN, Role.VIEWER);
 		} catch (e) {
 			alert('unable to restart!');
 			return;
 		}
 
-		this.logger.post(
+		this.logger?.postLog(
 			this.channelName,
 			this.clientId,
 			this.role,
@@ -167,43 +178,45 @@ export default class Viewer extends KVSClient {
 
 		this.connectionLevel = level;
 
-		if (this.stream) {
+		if (this.localStream) {
 			if (this.tracks.length !== 0) {
 				this.tracks.forEach((track) => {
-					this.peerConnection.removeTrack(track);
+					this.peerConnection?.removeTrack(track);
 				});
 				this.tracks = [];
 			}
 
-			this.stream
-				.getTracks()
-				.forEach((track) => this.tracks.push(this.peerConnection.addTrack(track, this.stream)));
+			this.localStream.getTracks().forEach((track) => {
+				const sender = this.peerConnection?.addTrack(track, this.localStream);
+				if (sender) this.tracks.push(sender);
+			});
 		}
 
-		this.peerConnection.setConfiguration({
+		this.peerConnection?.setConfiguration({
 			iceServers: iceServerList,
 			iceTransportPolicy:
 				// this.turnOnly || level === constants.ConnectionLevel.TURN ? 'relay' : 'all'
 				this.turnOnly ? 'relay' : 'all'
 		});
 
-		await this.peerConnection.setLocalDescription(
-			await this.peerConnection.createOffer({
+		await this.peerConnection?.setLocalDescription(
+			await this.peerConnection?.createOffer({
 				offerToReceiveAudio: true,
 				offerToReceiveVideo: true,
 				iceRestart: true
 			})
 		);
 
-		this.logger.post(
+		this.logger?.postLog(
 			this.channelName,
 			this.clientId,
 			this.role,
 			'SDP',
 			`[${this.role}] Sending SDP Restart offer`
 		);
-		this.signalingClient.sendSdpOffer(this.peerConnection.localDescription);
-		this.logger.post(
+		if (this.peerConnection !== null && this.peerConnection.localDescription)
+			this.signalingClient?.sendSdpOffer(this.peerConnection.localDescription);
+		this.logger?.postLog(
 			this.channelName,
 			this.clientId,
 			this.role,
@@ -215,7 +228,7 @@ export default class Viewer extends KVSClient {
 	}
 
 	async restartIce() {
-		this.peerConnection.restartIce();
+		this.peerConnection?.restartIce();
 	}
 
 	async getCurrentLevel() {
@@ -235,21 +248,21 @@ export default class Viewer extends KVSClient {
 		// 	return constants.ConnectionLevel.TURN_UDP;
 
 		if (candidate.candidateType === 'relay' && candidate.protocol === 'udp') {
-			return constants.ConnectionLevel.TURN;
+			return ConnectionLevel.TURN;
 		} else {
-			return constants.ConnectionLevel.DIRECT;
+			return ConnectionLevel.DIRECT;
 		}
 	}
 
-	registerConnectionObserverHandler(handler) {
-		this.ConnectionObserverHandler = handler;
+	registerConnectionObserverHandler(handler: (receivedBytes: number) => void) {
+		this.connectionObserverHandler = handler;
 	}
 
 	async startConnectionObserver() {
 		if (this.connectionObserver) clearInterval(this.connectionObserver);
 		this.connectionObserver = setInterval(async () => {
-			let receivedBytes = await this.getReceivedTraffics();
-			this.ConnectionObserverHandler(receivedBytes);
+			const receivedBytes = await this.getReceivedTraffics();
+			if (this.connectionObserverHandler) this.connectionObserverHandler(receivedBytes);
 		}, 1000);
 	}
 }

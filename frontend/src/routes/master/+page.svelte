@@ -1,13 +1,15 @@
-<script>
+<script lang="ts">
 	import { onMount } from 'svelte';
 	import Master from '$lib/kinesis/master';
 	import config from '$lib/config';
-	import constants from '$lib/kinesis/constants';
+	import {RetryCondition} from '$lib/kinesis/constants';
+	import KVSLogger from '$lib/logger/kvsLogger';
 
-	let localView;
-	let localStream;
-	let master;
-	let retryMethod = constants.RetryCondition.NO_RETRY;
+	let master : Master | undefined;
+	let logger : KVSLogger | undefined;
+	let localStream : MediaStream;
+	let localView : HTMLVideoElement;
+	let retryMethod = RetryCondition.NO_RETRY;
 
 	let kvsConnectionState = 'disconnected';
 	let iceConnectionState = 'not started';
@@ -20,14 +22,21 @@
 	let turnOnly = config.turnOnly;
 
 	onMount(async () => {
-		let data = new URLSearchParams(window.location.search)
+		const data = new URLSearchParams(window.location.search)
+		const channelName = data.get('channel')
+		const userName = data.get('username')
+		if (!channelName || !userName) return alert("Wrong Channel name or Username");
 
 		localStream = await navigator.mediaDevices.getUserMedia({
 			video: { width: { ideal: 1280 }, height: { ideal: 720 } },
 			audio: false
 		});
 		localView.srcObject = localStream;
-		master = new Master(data.get('channel'), data.get('username'), localStream, retryMethod);
+
+		logger = new KVSLogger(reportLogs, saveLogs, printConsole)
+		await logger.init()
+
+		master = new Master(channelName, userName, localStream, retryMethod, logger);
 		master.registerKvsConnectionStateHandler((state) => {
 			kvsConnectionState = state;
 		});
@@ -44,7 +53,7 @@
 <div class="controller">
 	<button
 		on:click={() => {
-			master.init();
+			master?.init();
 		}}>Initialize</button
 	>
 
@@ -53,12 +62,12 @@
 	KVS
 	<button
 		on:click={() => {
-			master.connectKVS();
+			master?.connectKVS();
 		}}>Connect</button
 	>
 	<button
 		on:click={() => {
-			master.disconnectKVS();
+			master?.disconnectKVS();
 		}}>Disconnect</button
 	>
 	<span bind:innerHTML={kvsConnectionState} contenteditable="false" /><br />
@@ -67,16 +76,19 @@
 
 	WebRTC<button
 		on:click={() => {
-			master.stopWebRTC();
+			master?.stopWebRTC();
 		}}>Stop</button
 	>
 	<button
 		on:click={async () => {
-			const {localCandidate, remoteCandidate} = await master.getCandidates();
-			candidate = `
-			local:${localCandidate.candidateType} | ip:${localCandidate.ip} | port:${localCandidate.port} | protocol:${localCandidate.protocol}
-			<br>
-			remote:${remoteCandidate.candidateType} | ip:${remoteCandidate.ip} | port:${remoteCandidate.port} | protocol:${remoteCandidate.protocol}`
+			const currentCandidatePair = await master?.getCandidates();
+			if (currentCandidatePair) {
+				const {localCandidate, remoteCandidate} = currentCandidatePair
+				candidate = `
+				local:${localCandidate.candidateType} | ip:${localCandidate.ip} | port:${localCandidate.port} | protocol:${localCandidate.protocol}
+				<br>
+				remote:${remoteCandidate.candidateType} | ip:${remoteCandidate.ip} | port:${remoteCandidate.port} | protocol:${remoteCandidate.protocol}`
+			}
 		}}>Show Candidates</button
 	><br />
 	iceConnectionState: <span bind:innerHTML={iceConnectionState} contenteditable="false" /><br />
@@ -90,7 +102,7 @@
 				type="checkbox"
 				bind:checked={reportLogs}
 				on:change={() => {
-					master.toggleReportLogs(reportLogs);
+					logger?.toggleReportLogs(reportLogs);
 				}}
 			/><br />
 		</div>
@@ -99,7 +111,7 @@
 				type="checkbox"
 				bind:checked={saveLogs}
 				on:change={() => {
-					master.toggleSaveLogs(saveLogs);
+					logger?.toggleSaveLogs(saveLogs);
 				}}
 			/><br />
 		</div>
@@ -109,7 +121,7 @@
 				type="checkbox"
 				bind:checked={printConsole}
 				on:change={() => {
-					master.togglePrintConsole(printConsole);
+					logger?.togglePrintConsole(printConsole);
 				}}
 			/>
 		</div>
@@ -119,7 +131,7 @@
 				type="checkbox"
 				bind:checked={turnOnly}
 				on:change={() => {
-					master.toggleTURNOnly(turnOnly);
+					master?.toggleTURNOnly(turnOnly);
 				}}
 			/>
 		</div>
@@ -129,27 +141,27 @@
 		<legend>Retry Method</legend>
 	
 		<div>
-		  <input type="radio" bind:group={retryMethod} name="retryMethod" value={constants.RetryCondition.NO_RETRY} checked>
+		  <input type="radio" bind:group={retryMethod} name="retryMethod" value={RetryCondition.NO_RETRY} checked>
 		  <label for="no_retry">no_retry</label>
 		</div>
 	
 		<div>
-		  <input type="radio" bind:group={retryMethod} name="retryMethod" value={constants.RetryCondition.AFTER_FAILED}>
+		  <input type="radio" bind:group={retryMethod} name="retryMethod" value={RetryCondition.AFTER_FAILED}>
 		  <label for="after_failed">after_failed</label>
 		</div>
 	
 		<div>
-		  <input type="radio" bind:group={retryMethod} name="retryMethod" value={constants.RetryCondition.AFTER_DISCONNECTED}>
+		  <input type="radio" bind:group={retryMethod} name="retryMethod" value={RetryCondition.AFTER_DISCONNECTED}>
 		  <label for="after_disconnected">after_disconnected</label>
 		</div>
 
 		<div>
-			<input type="radio" bind:group={retryMethod} name="retryMethod" value={constants.RetryCondition.RIGHT_AFTER_DISCONNECTED}>
+			<input type="radio" bind:group={retryMethod} name="retryMethod" value={RetryCondition.RIGHT_AFTER_DISCONNECTED}>
 			<label for="right_after_disconnected">right_after_disconnected</label>
 		  </div>
 
 		<div>
-			<input type="radio" bind:group={retryMethod} name="retryMethod" value={constants.RetryCondition.BEFORE_DISCONNECTED}>
+			<input type="radio" bind:group={retryMethod} name="retryMethod" value={RetryCondition.BEFORE_DISCONNECTED}>
 			<label for="before_disconnected">before_disconnected</label>
 		</div>
 	</fieldset>

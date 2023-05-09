@@ -1,9 +1,9 @@
-<script>
+<script lang="ts">
 	import { onMount } from "svelte";
 	import KVSLogReceiver from "$lib/logger/kvsLogReceiver";
 
 	let logSpace = "";
-	let data;
+	let data : URLSearchParams | null;
 
     onMount(async() => {
 		data = new URLSearchParams(window.location.search)
