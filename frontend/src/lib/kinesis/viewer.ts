@@ -10,8 +10,10 @@ export default class Viewer extends KVSClient {
 	localStream: MediaStream;
 	retryMethod: RetryCondition;
 	lastRetry: Date | null;
+	pingChannel: RTCDataChannel | null;
+	lastPingReceived: Date | null;
 	connectionObserver: NodeJS.Timer | null;
-	connectionObserverHandler: { (receivedBytes: number): void } | null;
+	connectionObserverHandler: ((receivedBytes: number) => void) | null;
 
 	constructor(
 		channelName: string,
@@ -27,33 +29,38 @@ export default class Viewer extends KVSClient {
 		this.localStream = localStream;
 		this.retryMethod = retryMethod;
 		this.lastRetry = null;
+		this.pingChannel = null;
+		this.lastPingReceived = null;
 		this.connectionObserver = null;
 		this.connectionObserverHandler = null;
 	}
 	async init() {
 		await super.init();
 
+		const sendChannel = this.peerConnection?.createDataChannel('ping');
+		if (sendChannel) {
+			this.pingChannel = sendChannel;
+			this.pingChannel.onopen = () => {
+				this.log('DataChannel', 'Datachannel is opened');
+			};
+			this.pingChannel.onmessage = (e) => {
+				console.log(e.data);
+				this.lastPingReceived = new Date();
+			};
+			this.pingChannel.onclose = () => {
+				this.log('DataChannel', 'Datachannel is closed');
+			};
+		}
+
 		this.signalingClient?.on('sdpAnswer', async (answer) => {
 			// Add the SDP answer to the peer connection
-			this.logger?.postLog(
-				this.channelName,
-				this.clientId,
-				this.role,
-				'SDP',
-				`[${this.role}] Received SDP answer`
-			);
+			this.log('SDP', `Received SDP answer`);
 			await this.peerConnection?.setRemoteDescription(answer);
 		});
 
 		// As remote tracks are received, add them to the remote view
 		this.peerConnection?.addEventListener('track', (event) => {
-			this.logger?.postLog(
-				this.channelName,
-				this.clientId,
-				this.role,
-				'WebRTC',
-				`[${this.role}] Received remote track`
-			);
+			this.log('WebRTC', `Received remote track`);
 			// if (this.remoteView.srcObject) {
 			// 	return;
 			// }
@@ -63,44 +70,20 @@ export default class Viewer extends KVSClient {
 
 		this.peerConnection?.addEventListener('icecandidate', ({ candidate }) => {
 			if (candidate) {
-				this.logger?.postLog(
-					this.channelName,
-					this.clientId,
-					this.role,
-					'ICE',
-					`[${this.role}] Generated ICE candidate : ${candidate.candidate}`
-				);
+				this.log('ICE', `Generated ICE candidate : ${candidate.candidate}`);
 
 				console.log(candidate.type, candidate.address, candidate.protocol);
 				this.signalingClient?.sendIceCandidate(candidate);
 			} else {
-				this.logger?.postLog(
-					this.channelName,
-					this.clientId,
-					this.role,
-					'ICE',
-					`[${this.role}] All ICE candidates have been generated`
-				);
+				this.log('ICE', `All ICE candidates have been generated`);
 			}
 		});
 
-		this.logger?.postLog(
-			this.channelName,
-			this.clientId,
-			this.role,
-			'system',
-			`[${this.role}] Initialized`
-		);
+		this.log('system', `Initialized`);
 	}
 
 	startWebRTC = async () => {
-		this.logger?.postLog(
-			this.channelName,
-			this.clientId,
-			this.role,
-			'SDP',
-			`[${this.role}] Creating SDP offer`
-		);
+		this.log('SDP', `Creating SDP offer`);
 
 		if (this.localStream) {
 			if (this.tracks.length !== 0) {
@@ -123,22 +106,10 @@ export default class Viewer extends KVSClient {
 			})
 		);
 
-		this.logger?.postLog(
-			this.channelName,
-			this.clientId,
-			this.role,
-			'SDP',
-			`[${this.role}] Sending SDP offer`
-		);
+		this.log('SDP', `Sending SDP offer`);
 		if (this.peerConnection !== null && this.peerConnection.localDescription)
 			this.signalingClient?.sendSdpOffer(this.peerConnection.localDescription);
-		this.logger?.postLog(
-			this.channelName,
-			this.clientId,
-			this.role,
-			'ICE',
-			`[${this.role}] Generating ICE candidates`
-		);
+		this.log('ICE', `Generating ICE candidates`);
 
 		this.lastRetry = new Date();
 		this.startConnectionObserver();
@@ -168,13 +139,7 @@ export default class Viewer extends KVSClient {
 			return;
 		}
 
-		this.logger?.postLog(
-			this.channelName,
-			this.clientId,
-			this.role,
-			'WebRTC',
-			`[${this.role}] Retry WebRTC`
-		);
+		this.log('WebRTC', `Retry WebRTC`);
 
 		this.connectionLevel = level;
 
@@ -207,22 +172,10 @@ export default class Viewer extends KVSClient {
 			})
 		);
 
-		this.logger?.postLog(
-			this.channelName,
-			this.clientId,
-			this.role,
-			'SDP',
-			`[${this.role}] Sending SDP Restart offer`
-		);
+		this.log('SDP', `Sending SDP Restart offer`);
 		if (this.peerConnection !== null && this.peerConnection.localDescription)
 			this.signalingClient?.sendSdpOffer(this.peerConnection.localDescription);
-		this.logger?.postLog(
-			this.channelName,
-			this.clientId,
-			this.role,
-			'ICE',
-			`[${this.role}] Generating ICE candidates`
-		);
+		this.log('ICE', `Generating ICE candidates`);
 
 		await this.startConnectionObserver();
 	}
@@ -262,6 +215,7 @@ export default class Viewer extends KVSClient {
 		if (this.connectionObserver) clearInterval(this.connectionObserver);
 		this.connectionObserver = setInterval(async () => {
 			const receivedBytes = await this.getReceivedTraffics();
+			if (this.pingChannel) this.pingChannel.send('ping');
 			if (this.connectionObserverHandler) this.connectionObserverHandler(receivedBytes);
 		}, 1000);
 	}

@@ -20,6 +20,7 @@ export default class KVSClient {
 	kvsConnectionStateHandler: ((state: string) => void) | null;
 	iceConnectionStateHandler: ((state: string) => void) | null;
 	connectionStateHandler: ((state: string) => void) | null;
+	pingReceiveHandler: ((message: string) => void) | null;
 
 	constructor(role: Role, channelName: string, userName: string, logger: KVSLogger) {
 		this.peerConnection = null;
@@ -35,6 +36,7 @@ export default class KVSClient {
 		this.kvsConnectionStateHandler = null;
 		this.iceConnectionStateHandler = null;
 		this.connectionStateHandler = null;
+		this.pingReceiveHandler = null;
 	}
 
 	async init() {
@@ -63,25 +65,16 @@ export default class KVSClient {
 			iceTransportPolicy: this.turnOnly ? 'relay' : 'all'
 		});
 
-		this.signalingClient?.on('open', async () => {
+		this.signalingClient.on('open', async () => {
 			if (this.kvsConnectionStateHandler) {
 				this.connectedKVS = true;
 				this.kvsConnectionStateHandler?.('connected');
 			}
-			this.logger.postLog(
-				this.channelName,
-				this.clientId,
-				this.role,
-				'KVS',
-				`[${this.role}] Connected to signaling service`
-			);
+			this.log('KVS', `[${this.role}] Connected to signaling service`);
 		});
 
-		this.signalingClient?.on('iceCandidate', async (candidate, remoteClientId) => {
-			this.logger.postLog(
-				this.channelName,
-				this.clientId,
-				this.role,
+		this.signalingClient.on('iceCandidate', async (candidate, remoteClientId) => {
+			this.log(
 				'ICE',
 				`[${this.role}] Received ICE candidate from client: ${remoteClientId}, ${candidate.candidate}`
 			);
@@ -90,35 +83,20 @@ export default class KVSClient {
 			this.peerConnection?.addIceCandidate(candidate);
 		});
 
-		this.signalingClient?.on('close', () => {
+		this.signalingClient.on('close', () => {
 			if (this.kvsConnectionStateHandler) {
 				this.connectedKVS = false;
 				this.kvsConnectionStateHandler('disconnected');
 			}
-			this.logger.postLog(
-				this.channelName,
-				this.clientId,
-				this.role,
-				'KVS',
-				`[${this.role}] Disconnected from signaling channel`
-			);
+			this.log('KVS', `[${this.role}] Disconnected from signaling channel`);
 		});
 
-		this.signalingClient?.on('error', (e) => {
-			this.logger.postLog(
-				this.channelName,
-				this.clientId,
-				this.role,
-				'Error',
-				`[${this.role}] Signaling client error : ${e}`
-			);
+		this.signalingClient.on('error', (e) => {
+			this.log('Error', `[${this.role}] Signaling client error : ${e}`);
 		});
 
-		this.peerConnection?.addEventListener('iceconnectionstatechange', (event) => {
-			this.logger.postLog(
-				this.channelName,
-				this.clientId,
-				this.role,
+		this.peerConnection.addEventListener('iceconnectionstatechange', (event) => {
+			this.log(
 				'WebRTC',
 				`[${this.role}] iceConnectionState changed : ${
 					(event.target as RTCPeerConnection).iceConnectionState
@@ -128,11 +106,8 @@ export default class KVSClient {
 				this.iceConnectionStateHandler((event.target as RTCPeerConnection).iceConnectionState);
 		});
 
-		this.peerConnection?.addEventListener('connectionstatechange', (event) => {
-			this.logger.postLog(
-				this.channelName,
-				this.clientId,
-				this.role,
+		this.peerConnection.onconnectionstatechange = (event) => {
+			this.log(
 				'WebRTC',
 				`[${this.role}] connectionState changed : ${
 					(event.target as RTCPeerConnection).connectionState
@@ -140,7 +115,17 @@ export default class KVSClient {
 			);
 			if (this.connectionStateHandler)
 				this.connectionStateHandler((event.target as RTCPeerConnection).connectionState);
-		});
+		};
+	}
+
+	async log(type: string, content: string) {
+		await this.logger.postLog(
+			this.channelName,
+			this.clientId,
+			this.role,
+			type,
+			`[${this.role}] ` + content
+		);
 	}
 
 	connectKVS() {
@@ -240,6 +225,10 @@ export default class KVSClient {
 
 	registerConnectionStateHandler(handler: (state: string) => void) {
 		this.connectionStateHandler = handler;
+	}
+
+	registerPingReceiveChannel(handler: (message: string) => void) {
+		this.pingReceiveHandler = handler;
 	}
 
 	toggleTURNOnly(onOff: boolean) {
