@@ -70,13 +70,13 @@ export default class KVSClient {
 				this.connectedKVS = true;
 				this.kvsConnectionStateHandler?.('connected');
 			}
-			this.log('KVS', `[${this.role}] Connected to signaling service`);
+			this.log('KVS', `Connected to signaling service`);
 		});
 
 		this.signalingClient.on('iceCandidate', async (candidate, remoteClientId) => {
 			this.log(
 				'ICE',
-				`[${this.role}] Received ICE candidate from client: ${remoteClientId}, ${candidate.candidate}`
+				`Received ICE candidate from client: ${remoteClientId}, ${candidate.candidate}`
 			);
 
 			// Add the ICE candidate received from the client to the peer connection
@@ -88,19 +88,17 @@ export default class KVSClient {
 				this.connectedKVS = false;
 				this.kvsConnectionStateHandler('disconnected');
 			}
-			this.log('KVS', `[${this.role}] Disconnected from signaling channel`);
+			this.log('KVS', `Disconnected from signaling channel`);
 		});
 
 		this.signalingClient.on('error', (e) => {
-			this.log('Error', `[${this.role}] Signaling client error : ${e}`);
+			this.log('Error', `Signaling client error : ${e}`);
 		});
 
 		this.peerConnection.addEventListener('iceconnectionstatechange', (event) => {
 			this.log(
 				'WebRTC',
-				`[${this.role}] iceConnectionState changed : ${
-					(event.target as RTCPeerConnection).iceConnectionState
-				}`
+				`iceConnectionState changed : ${(event.target as RTCPeerConnection).iceConnectionState}`
 			);
 			if (this.iceConnectionStateHandler)
 				this.iceConnectionStateHandler((event.target as RTCPeerConnection).iceConnectionState);
@@ -109,9 +107,7 @@ export default class KVSClient {
 		this.peerConnection.onconnectionstatechange = (event) => {
 			this.log(
 				'WebRTC',
-				`[${this.role}] connectionState changed : ${
-					(event.target as RTCPeerConnection).connectionState
-				}`
+				`connectionState changed : ${(event.target as RTCPeerConnection).connectionState}`
 			);
 			if (this.connectionStateHandler)
 				this.connectionStateHandler((event.target as RTCPeerConnection).connectionState);
@@ -129,13 +125,7 @@ export default class KVSClient {
 	}
 
 	connectKVS() {
-		this.logger.postLog(
-			this.channelName,
-			this.clientId,
-			this.role,
-			'KVS',
-			`[${this.role}] Starting connection`
-		);
+		this.log('KVS', `Starting connection`);
 		this.signalingClient?.open();
 	}
 
@@ -178,7 +168,7 @@ export default class KVSClient {
 					this.clientId,
 					this.role,
 					'WebRTC',
-					`[${this.role}] local candidate : ${JSON.stringify(
+					`local candidate : ${JSON.stringify(
 						localCandidate
 					)} /// connected candidate : ${JSON.stringify(remoteCandidate)}`
 				);
