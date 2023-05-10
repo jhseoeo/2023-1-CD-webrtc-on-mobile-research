@@ -1,6 +1,6 @@
 <script>
 	import config from '$lib/config';
-	import kinesisSDK from '$lib/kinesis/kinesisSDK';
+	import kinesis from '$lib/kinesis/kinesis';
 	
 	let channelName = '';
 	const now = new Date();
@@ -24,7 +24,7 @@
 		class="channel-button"
 		type="button"
 		on:click={() => {
-			kinesisSDK.createSignalingChannel(channelName);
+			kinesis.createSignalingChannel(channelName);
 		}}
 	>
 		Create Channel
@@ -34,7 +34,7 @@
 		class="channel-button"
 		type="button"
 		on:click={() => {
-			kinesisSDK.deleteSignalingChannel(channelName);
+			kinesis.deleteSignalingChannel(channelName);
 		}}
 	>
 		Delete Channel

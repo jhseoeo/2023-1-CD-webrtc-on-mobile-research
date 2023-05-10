@@ -46,7 +46,7 @@
 		viewer.registerConnectionStateHandler((state) => {
 			connectionState = state;
 		});
-		viewer.registerConnectionObserverHandler((bytes) => {
+		viewer.registerConnectionObserverDefaultHandler((bytes) => {
 			receivedBytes = String(bytes);
 		})
 	});
@@ -88,6 +88,10 @@
 			viewer?.stopWebRTC();
 		}}>Stop</button
 	>
+	
+	<button on:click={() => {
+		viewer?.retryWebRTC();
+	}}>restart</button>
 	<button
 	on:click={async () => {
 		const currentCandidatePair = await viewer?.getCandidates();
@@ -104,13 +108,6 @@
 	connectionState: <span bind:innerHTML={connectionState} contenteditable="false" /><br />
 	receivedBytes: <span bind:innerHTML={receivedBytes} contenteditable="false" /><br />
 	candidates <br> <span bind:innerHTML={candidate} contenteditable="false" /><br />
-
-	<button on:click={() => {
-		viewer?.retryWebRTC();
-	}}>Retry Connection</button>
-	<button on:click={() => {
-		viewer?.restartIce();
-	}}>Restart ICE</button>
 
 	<hr />
 

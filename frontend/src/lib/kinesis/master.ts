@@ -1,9 +1,9 @@
 import { Role } from 'amazon-kinesis-video-streams-webrtc/lib/Role';
-import KVSClient from './kvsClient';
+import WebRTCClient from './webRTCClient';
 import type { RetryCondition } from './constants';
 import type KVSLogger from '$lib/logger/kvsLogger';
 
-export default class Master extends KVSClient {
+export default class Master extends WebRTCClient {
 	localStream: MediaStream;
 	retryMethod: RetryCondition;
 	pingChannel: RTCDataChannel | null;
@@ -23,6 +23,13 @@ export default class Master extends KVSClient {
 
 	async init() {
 		await super.init();
+
+		if (this.localStream && this.tracks.length === 0) {
+			this.localStream.getTracks().forEach((track) => {
+				const sender = this.peerConnection?.addTrack(track, this.localStream);
+				if (sender) this.tracks.push(sender);
+			});
+		}
 
 		this.signalingClient?.on('sdpOffer', async (offer, remoteClientId) => {
 			this.log('SDP', `Received SDP offer from client : ${remoteClientId}`);
@@ -55,12 +62,6 @@ export default class Master extends KVSClient {
 				};
 			}
 
-			if (this.localStream && this.tracks.length === 0) {
-				this.localStream.getTracks().forEach((track) => {
-					const sender = this.peerConnection?.addTrack(track, this.localStream);
-					if (sender) this.tracks.push(sender);
-				});
-			}
 			await this.peerConnection?.setRemoteDescription(offer);
 
 			// Create an SDP answer to send back to the client
@@ -80,11 +81,5 @@ export default class Master extends KVSClient {
 		});
 
 		this.log('system', `Initialized`);
-	}
-
-	async registerIceConnectionStateHandler(handler: (state: string) => void) {
-		super.registerIceConnectionStateHandler((state) => {
-			handler(state);
-		});
 	}
 }

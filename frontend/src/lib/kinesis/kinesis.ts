@@ -3,7 +3,7 @@ import { KinesisVideoSignaling } from '@aws-sdk/client-kinesis-video-signaling';
 import config from '$lib/config';
 import type { Role } from 'amazon-kinesis-video-streams-webrtc';
 
-class KinesisSDK {
+class Kinesis {
 	kinesisVideo: KinesisVideo;
 
 	constructor() {
@@ -16,6 +16,9 @@ class KinesisSDK {
 		});
 	}
 
+	/**
+	 * Return WSS or HTTPS endpoint by channel ARN
+	 */
 	async getEndpoints(channelARN: string, protocol: string, role: Role) {
 		return (
 			await this.kinesisVideo.getSignalingChannelEndpoint({
@@ -28,6 +31,9 @@ class KinesisSDK {
 		)?.ResourceEndpointList?.[0].ResourceEndpoint;
 	}
 
+	/**
+	 * Return whether channel is exists by given channelname
+	 */
 	async checkChannelExists(channelName: string) {
 		const { ChannelInfoList } = await this.kinesisVideo.listSignalingChannels({
 			ChannelNameCondition: {
@@ -39,6 +45,9 @@ class KinesisSDK {
 		return ChannelInfoList?.length === 1;
 	}
 
+	/**
+	 * Return list of ice server(STUN, TURN) by channel ARN and role
+	 */
 	async getIceServerList(channelARN: string, role: Role): Promise<RTCIceServer[] | undefined> {
 		const endpoints = await this.getEndpoints(channelARN, 'HTTPS', role);
 
@@ -75,24 +84,43 @@ class KinesisSDK {
 		);
 	}
 
+	/**
+	 * Create signaling channel
+	 */
 	async createSignalingChannel(channelName: string) {
 		return this.kinesisVideo.createSignalingChannel({
 			ChannelName: channelName
 		});
 	}
 
-	async getSignalingChannel(channelName: string) {
-		return this.kinesisVideo.describeSignalingChannel({
-			ChannelName: channelName
+	/**
+	 * Get signaling channel information by channel name
+	 */
+	async getSignalingChannelARN(channelName: string): Promise<string> {
+		return new Promise((resolve, reject) => {
+			this.kinesisVideo
+				.describeSignalingChannel({
+					ChannelName: channelName
+				})
+				.then((channel) => {
+					if (channel.ChannelInfo?.ChannelARN) resolve(channel.ChannelInfo?.ChannelARN);
+					else reject('undefined channelARN val');
+				})
+				.catch((e) => {
+					reject(e);
+				});
 		});
 	}
 
+	/**
+	 * Delete signaling channel information by channel name
+	 */
 	async deleteSignalingChannel(channelName: string) {
-		const channel = await this.getSignalingChannel(channelName);
+		const channelARN = await this.getSignalingChannelARN(channelName);
 		return this.kinesisVideo.deleteSignalingChannel({
-			ChannelARN: channel.ChannelInfo?.ChannelARN
+			ChannelARN: channelARN
 		});
 	}
 }
 
-export default new KinesisSDK();
+export default new Kinesis();

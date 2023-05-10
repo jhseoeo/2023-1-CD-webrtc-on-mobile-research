@@ -1,4 +1,4 @@
-import KinesisSDK from './kinesisSDK';
+import Kinesis from './kinesis';
 import config from '$lib/config';
 import type KVSLogger from '$lib/logger/kvsLogger';
 // import { SignalingClient, Role } from 'amazon-kinesis-video-streams-webrtc';
@@ -6,7 +6,7 @@ import { SignalingClient } from 'amazon-kinesis-video-streams-webrtc/lib/Signali
 import { Role } from 'amazon-kinesis-video-streams-webrtc/lib/Role';
 import type { LocalAndRemoteIceCandidateStats, RTCicecandidateStats } from './constants';
 
-export default class KVSClient {
+export default class WebRTCClient {
 	peerConnection: RTCPeerConnection | null;
 	signalingClient: SignalingClient | null;
 	connectedKVS: boolean;
@@ -40,11 +40,9 @@ export default class KVSClient {
 	}
 
 	async init() {
-		const ChannelARN = (await KinesisSDK.getSignalingChannel(this.channelName)).ChannelInfo
-			?.ChannelARN;
-		if (ChannelARN === undefined) return alert('Error on initialize');
-		const wssEndpoint = await KinesisSDK.getEndpoints(ChannelARN, 'WSS', this.role);
-		const iceServerList = await KinesisSDK.getIceServerList(ChannelARN, this.role);
+		const ChannelARN = await Kinesis.getSignalingChannelARN(this.channelName);
+		const wssEndpoint = await Kinesis.getEndpoints(ChannelARN, 'WSS', this.role);
+		const iceServerList = await Kinesis.getIceServerList(ChannelARN, this.role);
 		if (wssEndpoint === undefined || iceServerList === undefined)
 			return alert('Error on initialize');
 
@@ -141,67 +139,79 @@ export default class KVSClient {
 
 	getCandidates(): Promise<LocalAndRemoteIceCandidateStats> {
 		return new Promise((resolve, reject) => {
-			this.peerConnection?.getStats(null).then((stats) => {
-				const candidatePairs: RTCIceCandidatePairStats[] = [];
-				stats.forEach((report) => {
-					if (report.type == 'candidate-pair' && report.nominated && report.state == 'succeeded')
-						candidatePairs.push(report);
+			this.peerConnection
+				?.getStats(null)
+				.then((stats) => {
+					const candidatePairs: RTCIceCandidatePairStats[] = [];
+					stats.forEach((report) => {
+						if (report.type == 'candidate-pair' && report.nominated && report.state == 'succeeded')
+							candidatePairs.push(report);
+					});
+
+					if (candidatePairs.length === 0) return reject('No succeeded candidate pair exist');
+
+					candidatePairs.sort((a, b) => {
+						if (
+							a.lastPacketReceivedTimestamp !== undefined &&
+							b.lastPacketReceivedTimestamp !== undefined
+						)
+							return b.lastPacketReceivedTimestamp - a.lastPacketReceivedTimestamp;
+						else return 0;
+					});
+
+					const localCandidate: RTCicecandidateStats = stats.get(
+						candidatePairs[0].localCandidateId
+					);
+					const remoteCandidate: RTCicecandidateStats = stats.get(
+						candidatePairs[0].remoteCandidateId
+					);
+					this.logger.postLog(
+						this.channelName,
+						this.clientId,
+						this.role,
+						'WebRTC',
+						`local candidate : ${JSON.stringify(
+							localCandidate
+						)} /// connected candidate : ${JSON.stringify(remoteCandidate)}`
+					);
+					return resolve({ localCandidate, remoteCandidate });
+				})
+				.catch((e) => {
+					return reject(e);
 				});
-
-				if (candidatePairs.length === 0) return reject('No succeeded candidate pair exist');
-
-				candidatePairs.sort((a, b) => {
-					if (
-						a.lastPacketReceivedTimestamp !== undefined &&
-						b.lastPacketReceivedTimestamp !== undefined
-					)
-						return b.lastPacketReceivedTimestamp - a.lastPacketReceivedTimestamp;
-					else return 0;
-				});
-
-				const localCandidate: RTCicecandidateStats = stats.get(candidatePairs[0].localCandidateId);
-				const remoteCandidate: RTCicecandidateStats = stats.get(
-					candidatePairs[0].remoteCandidateId
-				);
-				this.logger.postLog(
-					this.channelName,
-					this.clientId,
-					this.role,
-					'WebRTC',
-					`local candidate : ${JSON.stringify(
-						localCandidate
-					)} /// connected candidate : ${JSON.stringify(remoteCandidate)}`
-				);
-				return resolve({ localCandidate, remoteCandidate });
-			});
 		});
 	}
 
 	getReceivedTraffics(): Promise<number> {
 		return new Promise((resolve, reject) => {
-			this.peerConnection?.getStats(null).then((stats) => {
-				const candidatePairs: RTCIceCandidatePairStats[] = [];
-				stats.forEach((report) => {
-					if (report.type == 'candidate-pair' && report.nominated && report.state == 'succeeded')
-						candidatePairs.push(report);
+			this.peerConnection
+				?.getStats(null)
+				.then((stats) => {
+					const candidatePairs: RTCIceCandidatePairStats[] = [];
+					stats.forEach((report) => {
+						if (report.type == 'candidate-pair' && report.nominated && report.state == 'succeeded')
+							candidatePairs.push(report);
+					});
+
+					if (candidatePairs.length === 0) return reject('No succeeded candidate pair exist');
+
+					candidatePairs.sort((a, b) => {
+						if (
+							a.lastPacketReceivedTimestamp !== undefined &&
+							b.lastPacketReceivedTimestamp !== undefined
+						)
+							return b.lastPacketReceivedTimestamp - a.lastPacketReceivedTimestamp;
+						else return 0;
+					});
+
+					const receivedBytes = candidatePairs[0].bytesReceived || 0;
+					const result = receivedBytes - this.receivedTraffics;
+					this.receivedTraffics = receivedBytes;
+					return resolve(result);
+				})
+				.catch((e) => {
+					return reject(e);
 				});
-
-				if (candidatePairs.length === 0) return reject('No succeeded candidate pair exist');
-
-				candidatePairs.sort((a, b) => {
-					if (
-						a.lastPacketReceivedTimestamp !== undefined &&
-						b.lastPacketReceivedTimestamp !== undefined
-					)
-						return b.lastPacketReceivedTimestamp - a.lastPacketReceivedTimestamp;
-					else return 0;
-				});
-
-				const receivedBytes = candidatePairs[0].bytesReceived || 0;
-				const result = receivedBytes - this.receivedTraffics;
-				this.receivedTraffics = receivedBytes;
-				return resolve(result);
-			});
 		});
 	}
 
@@ -215,10 +225,6 @@ export default class KVSClient {
 
 	registerConnectionStateHandler(handler: (state: string) => void) {
 		this.connectionStateHandler = handler;
-	}
-
-	registerPingReceiveChannel(handler: (message: string) => void) {
-		this.pingReceiveHandler = handler;
 	}
 
 	toggleTURNOnly(onOff: boolean) {
