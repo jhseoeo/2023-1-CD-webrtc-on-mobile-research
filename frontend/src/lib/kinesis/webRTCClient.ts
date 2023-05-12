@@ -165,10 +165,7 @@ export default class WebRTCClient {
 					const remoteCandidate: RTCicecandidateStats = stats.get(
 						candidatePairs[0].remoteCandidateId
 					);
-					this.logger.postLog(
-						this.channelName,
-						this.clientId,
-						this.role,
+					this.log(
 						'WebRTC',
 						`local candidate : ${JSON.stringify(
 							localCandidate

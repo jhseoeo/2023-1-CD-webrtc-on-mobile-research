@@ -1,4 +1,4 @@
-import type SendLogType from './sendLogType';
+import type { LogType, LogSendType, LogReceiveType } from './logType';
 
 export default class Logger {
 	opened: boolean;
@@ -15,9 +15,8 @@ export default class Logger {
 		this.ws = null;
 	}
 
-	init_(addr: string) {
+	protected init_(addr: string) {
 		return new Promise<void>((resolve, reject) => {
-			if (!this.reportLogs) return resolve();
 			try {
 				this.ws = new WebSocket(`${addr}`);
 			} catch (e) {
@@ -27,7 +26,7 @@ export default class Logger {
 
 			this.ws.onopen = () => {
 				this.opened = true;
-				console.log('Connected to Log server');
+				console.log(`Connected to Log server : ${addr}`);
 				resolve();
 			};
 
@@ -42,14 +41,14 @@ export default class Logger {
 		});
 	}
 
-	async post(data: SendLogType) {
-		if (this.printConsole) console.log(data.content);
-		if (this.reportLogs)
-			if (this.opened) this.ws?.send(JSON.stringify({ data, save: this.saveLogs }));
+	protected async post(data: LogSendType<LogType>) {
+		if (this.printConsole) console.log(data.data.content);
+		if (this.reportLogs || this.saveLogs)
+			if (this.opened) this.ws?.send(JSON.stringify(data));
 			else console.error('ws not opened');
 	}
 
-	async changeMessageHandler(handler: (data: object) => void) {
+	protected async changeMessageHandler(handler: (data: LogReceiveType<LogType>) => void) {
 		if (this.ws != null)
 			this.ws.onmessage = (e) => {
 				handler(JSON.parse(e.data));

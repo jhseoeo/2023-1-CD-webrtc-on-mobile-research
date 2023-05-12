@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+
 	"github.com/junhyuk0801/2023-1-CD-webrtc-on-mobile-research/backend/internal/domain/entity"
 	"github.com/junhyuk0801/2023-1-CD-webrtc-on-mobile-research/backend/internal/infrastructure"
 )
@@ -26,7 +27,6 @@ func (l LogViewerService) DescribeKVSLogs(channel string, user string, f func(kv
 		for {
 			select {
 			case data := <-logChannel:
-				fmt.Println(data)
 				err := f(data)
 				if err != nil {
 					fmt.Println(err)

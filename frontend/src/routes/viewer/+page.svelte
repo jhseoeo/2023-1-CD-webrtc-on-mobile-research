@@ -34,7 +34,7 @@
 		});
 
 		logger = new KVSLogger(reportLogs, saveLogs, printConsole);
-		await logger?.init();
+		await logger.init();
 
 		viewer = new Viewer(channelName, userName, localStream, remoteView, retryMethod, logger);
 		viewer.registerKvsConnectionStateHandler((state) => {
