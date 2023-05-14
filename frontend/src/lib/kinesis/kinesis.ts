@@ -19,7 +19,7 @@ class Kinesis {
 	/**
 	 * Return WSS or HTTPS endpoint by channel ARN
 	 */
-	async getEndpoints(channelARN: string, protocol: string, role: Role) {
+	public async getEndpoints(channelARN: string, protocol: string, role: Role) {
 		return (
 			await this.kinesisVideo.getSignalingChannelEndpoint({
 				ChannelARN: channelARN,
@@ -34,7 +34,7 @@ class Kinesis {
 	/**
 	 * Return whether channel is exists by given channelname
 	 */
-	async checkChannelExists(channelName: string) {
+	public async checkChannelExists(channelName: string) {
 		const { ChannelInfoList } = await this.kinesisVideo.listSignalingChannels({
 			ChannelNameCondition: {
 				ComparisonOperator: 'BEGINS_WITH',
@@ -48,7 +48,10 @@ class Kinesis {
 	/**
 	 * Return list of ice server(STUN, TURN) by channel ARN and role
 	 */
-	async getIceServerList(channelARN: string, role: Role): Promise<RTCIceServer[] | undefined> {
+	public async getIceServerList(
+		channelARN: string,
+		role: Role
+	): Promise<RTCIceServer[] | undefined> {
 		const endpoints = await this.getEndpoints(channelARN, 'HTTPS', role);
 
 		const kinesisVideoSignalingChannel = new KinesisVideoSignaling({
@@ -87,7 +90,7 @@ class Kinesis {
 	/**
 	 * Create signaling channel
 	 */
-	async createSignalingChannel(channelName: string) {
+	public async createSignalingChannel(channelName: string) {
 		return this.kinesisVideo.createSignalingChannel({
 			ChannelName: channelName
 		});
@@ -96,7 +99,7 @@ class Kinesis {
 	/**
 	 * Get signaling channel information by channel name
 	 */
-	async getSignalingChannelARN(channelName: string): Promise<string> {
+	public async getSignalingChannelARN(channelName: string): Promise<string> {
 		return new Promise((resolve, reject) => {
 			this.kinesisVideo
 				.describeSignalingChannel({
@@ -115,7 +118,7 @@ class Kinesis {
 	/**
 	 * Delete signaling channel information by channel name
 	 */
-	async deleteSignalingChannel(channelName: string) {
+	public async deleteSignalingChannel(channelName: string) {
 		const channelARN = await this.getSignalingChannelARN(channelName);
 		return this.kinesisVideo.deleteSignalingChannel({
 			ChannelARN: channelARN

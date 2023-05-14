@@ -21,6 +21,10 @@
 	let printConsole = config.printConsole;
 	let turnOnly = config.turnOnly;
 
+	let handleRetryMethodChange = (event: Event) => {
+		master?.changeRetryMethod((event.target as HTMLInputElement).value as RetryCondition)
+	}
+
 	onMount(async () => {
 		const data = new URLSearchParams(window.location.search)
 		const channelName = data.get('channel')
@@ -34,9 +38,13 @@
 		localView.srcObject = localStream;
 
 		logger = new KVSLogger(reportLogs, saveLogs, printConsole)
-		await logger.init()
+		try {
+			await logger.init()
+		} catch (e) {
+			console.log("Failed connect to log server. Contiunue without logging.")
+		}
 
-		master = new Master(channelName, userName, localStream, retryMethod, logger);
+		master = new Master(channelName, userName, localStream, logger);
 		master.registerKvsConnectionStateHandler((state) => {
 			kvsConnectionState = state;
 		});
@@ -141,27 +149,27 @@
 		<legend>Retry Method</legend>
 	
 		<div>
-		  <input type="radio" bind:group={retryMethod} name="retryMethod" value={RetryCondition.NO_RETRY} checked>
+		  <input type="radio" bind:group={retryMethod} name="retryMethod" value={RetryCondition.NO_RETRY} on:change={handleRetryMethodChange} checked>
 		  <label for="no_retry">no_retry</label>
 		</div>
 	
 		<div>
-		  <input type="radio" bind:group={retryMethod} name="retryMethod" value={RetryCondition.AFTER_FAILED}>
+		  <input type="radio" bind:group={retryMethod} name="retryMethod" value={RetryCondition.AFTER_FAILED} on:change={handleRetryMethodChange}>
 		  <label for="after_failed">after_failed</label>
 		</div>
 	
 		<div>
-		  <input type="radio" bind:group={retryMethod} name="retryMethod" value={RetryCondition.AFTER_DISCONNECTED}>
+		  <input type="radio" bind:group={retryMethod} name="retryMethod" value={RetryCondition.AFTER_DISCONNECTED} on:change={handleRetryMethodChange}>
 		  <label for="after_disconnected">after_disconnected</label>
 		</div>
 
 		<div>
-			<input type="radio" bind:group={retryMethod} name="retryMethod" value={RetryCondition.RIGHT_AFTER_DISCONNECTED}>
+			<input type="radio" bind:group={retryMethod} name="retryMethod" value={RetryCondition.RIGHT_AFTER_DISCONNECTED} on:change={handleRetryMethodChange}>
 			<label for="right_after_disconnected">right_after_disconnected</label>
 		  </div>
 
 		<div>
-			<input type="radio" bind:group={retryMethod} name="retryMethod" value={RetryCondition.BEFORE_DISCONNECTED}>
+			<input type="radio" bind:group={retryMethod} name="retryMethod" value={RetryCondition.BEFORE_DISCONNECTED} on:change={handleRetryMethodChange}>
 			<label for="before_disconnected">before_disconnected</label>
 		</div>
 	</fieldset>

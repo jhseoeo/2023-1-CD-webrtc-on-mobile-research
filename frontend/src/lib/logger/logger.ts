@@ -55,15 +55,15 @@ export default class Logger {
 			};
 	}
 
-	toggleReportLogs(onOff: boolean) {
+	public toggleReportLogs(onOff: boolean) {
 		this.reportLogs = onOff;
 	}
 
-	toggleSaveLogs(onOff: boolean) {
+	public toggleSaveLogs(onOff: boolean) {
 		this.saveLogs = onOff;
 	}
 
-	togglePrintConsole(onOff: boolean) {
+	public togglePrintConsole(onOff: boolean) {
 		this.printConsole = onOff;
 	}
 }

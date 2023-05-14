@@ -5,23 +5,15 @@ import type KVSLogger from '$lib/logger/kvsLogger';
 
 export default class Master extends WebRTCClient {
 	localStream: MediaStream;
-	retryMethod: RetryCondition;
 	pingChannel: RTCDataChannel | null;
 
-	constructor(
-		channelName: string,
-		userName: string,
-		localStream: MediaStream,
-		retryMethod: RetryCondition,
-		logger: KVSLogger
-	) {
+	constructor(channelName: string, userName: string, localStream: MediaStream, logger: KVSLogger) {
 		super(Role.MASTER, channelName, userName, logger);
 		this.localStream = localStream;
-		this.retryMethod = retryMethod;
 		this.pingChannel = null;
 	}
 
-	async init() {
+	public async init() {
 		await super.init();
 
 		if (this.localStream && this.tracks.length === 0) {
@@ -81,5 +73,15 @@ export default class Master extends WebRTCClient {
 		});
 
 		this.log('system', `Initialized`);
+	}
+
+	public registerKvsConnectionStateHandler(handler: (state: string) => void): void {
+		super.registerKvsConnectionStateHandler((state) => {
+			if (state == 'disconnected') {
+				this.connectKVS();
+			}
+
+			handler(state);
+		});
 	}
 }

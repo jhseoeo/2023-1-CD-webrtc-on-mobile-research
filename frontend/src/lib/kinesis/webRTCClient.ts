@@ -1,10 +1,14 @@
 import Kinesis from './kinesis';
 import config from '$lib/config';
 import type KVSLogger from '$lib/logger/kvsLogger';
-// import { SignalingClient, Role } from 'amazon-kinesis-video-streams-webrtc';
 import { SignalingClient } from 'amazon-kinesis-video-streams-webrtc/lib/SignalingClient';
 import { Role } from 'amazon-kinesis-video-streams-webrtc/lib/Role';
-import type { LocalAndRemoteIceCandidateStats, RTCicecandidateStats } from './constants';
+import {
+	RetryCondition,
+	ConnectionLevel,
+	type LocalAndRemoteIceCandidateStats,
+	type RTCicecandidateStats
+} from './constants';
 
 export default class WebRTCClient {
 	peerConnection: RTCPeerConnection | null;
@@ -14,6 +18,8 @@ export default class WebRTCClient {
 	channelName: string;
 	clientId: string;
 	turnOnly: boolean;
+	retryMethod: RetryCondition;
+	connectionLevel: ConnectionLevel;
 	tracks: Array<RTCRtpSender>;
 	receivedTraffics: number;
 	logger: KVSLogger;
@@ -30,6 +36,8 @@ export default class WebRTCClient {
 		this.channelName = channelName;
 		this.clientId = userName;
 		this.turnOnly = config.turnOnly;
+		this.retryMethod = RetryCondition.NO_RETRY;
+		this.connectionLevel = ConnectionLevel.DIRECT;
 		this.tracks = [];
 		this.receivedTraffics = 0;
 		this.logger = logger;
@@ -39,7 +47,10 @@ export default class WebRTCClient {
 		this.pingReceiveHandler = null;
 	}
 
-	async init() {
+	/**
+	 * Initialize WebRTC Client
+	 */
+	public async init() {
 		const ChannelARN = await Kinesis.getSignalingChannelARN(this.channelName);
 		const wssEndpoint = await Kinesis.getEndpoints(ChannelARN, 'WSS', this.role);
 		const iceServerList = await Kinesis.getIceServerList(ChannelARN, this.role);
@@ -112,7 +123,52 @@ export default class WebRTCClient {
 		};
 	}
 
-	async log(type: string, content: string) {
+	/**
+	 * Connect to Kinesis Video Stream Signaling Channel Websocket Server
+	 */
+	public connectKVS() {
+		this.log('KVS', `Starting connection`);
+		this.signalingClient?.open();
+	}
+
+	/**
+	 * Disconnect from Kinesis Video Stream Signaling Channel Websocket Server
+	 */
+	public disconnectKVS() {
+		this.signalingClient?.close();
+	}
+
+	/**
+	 * Stop current WebRTC Session.
+	 * connectionState and iceConnectionState will switched into 'closed' state
+	 */
+	public stopWebRTC() {
+		this.peerConnection?.close();
+		this.peerConnection?.dispatchEvent(new Event('iceconnectionstatechange'));
+		this.peerConnection?.dispatchEvent(new Event('connectionstatechange'));
+	}
+
+	public registerKvsConnectionStateHandler(handler: (state: string) => void) {
+		this.kvsConnectionStateHandler = handler;
+	}
+
+	public registerIceConnectionStateHandler(handler: (state: string) => void) {
+		this.iceConnectionStateHandler = handler;
+	}
+
+	public registerConnectionStateHandler(handler: (state: string) => void) {
+		this.connectionStateHandler = handler;
+	}
+
+	public toggleTURNOnly(onOff: boolean) {
+		this.turnOnly = onOff;
+	}
+
+	public changeRetryMethod(retryMethod: RetryCondition) {
+		this.retryMethod = retryMethod;
+	}
+
+	protected async log(type: string, content: string) {
 		await this.logger.postLog(
 			this.channelName,
 			this.clientId,
@@ -122,22 +178,7 @@ export default class WebRTCClient {
 		);
 	}
 
-	connectKVS() {
-		this.log('KVS', `Starting connection`);
-		this.signalingClient?.open();
-	}
-
-	disconnectKVS() {
-		this.signalingClient?.close();
-	}
-
-	stopWebRTC() {
-		this.peerConnection?.close();
-		this.peerConnection?.dispatchEvent(new Event('iceconnectionstatechange'));
-		this.peerConnection?.dispatchEvent(new Event('connectionstatechange'));
-	}
-
-	getCandidates(): Promise<LocalAndRemoteIceCandidateStats> {
+	public getCandidates(): Promise<LocalAndRemoteIceCandidateStats> {
 		return new Promise((resolve, reject) => {
 			this.peerConnection
 				?.getStats(null)
@@ -165,6 +206,13 @@ export default class WebRTCClient {
 					const remoteCandidate: RTCicecandidateStats = stats.get(
 						candidatePairs[0].remoteCandidateId
 					);
+
+					if (localCandidate.candidateType === 'relay' && localCandidate.protocol === 'udp') {
+						this.connectionLevel = ConnectionLevel.TURN;
+					} else {
+						this.connectionLevel = ConnectionLevel.DIRECT;
+					}
+
 					this.log(
 						'WebRTC',
 						`local candidate : ${JSON.stringify(
@@ -179,7 +227,7 @@ export default class WebRTCClient {
 		});
 	}
 
-	getReceivedTraffics(): Promise<number> {
+	protected getReceivedTraffics(): Promise<number> {
 		return new Promise((resolve, reject) => {
 			this.peerConnection
 				?.getStats(null)
@@ -210,21 +258,5 @@ export default class WebRTCClient {
 					return reject(e);
 				});
 		});
-	}
-
-	registerKvsConnectionStateHandler(handler: (state: string) => void) {
-		this.kvsConnectionStateHandler = handler;
-	}
-
-	registerIceConnectionStateHandler(handler: (state: string) => void) {
-		this.iceConnectionStateHandler = handler;
-	}
-
-	registerConnectionStateHandler(handler: (state: string) => void) {
-		this.connectionStateHandler = handler;
-	}
-
-	toggleTURNOnly(onOff: boolean) {
-		this.turnOnly = onOff;
 	}
 }

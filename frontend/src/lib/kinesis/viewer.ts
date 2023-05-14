@@ -8,34 +8,32 @@ import ConnectionObserver from './connectionObserver';
 export default class Viewer extends WebRTCClient {
 	remoteView: HTMLVideoElement;
 	localStream: MediaStream;
-	retryMethod: RetryCondition;
 	lastRetry: Date | null;
 	pingChannel: RTCDataChannel | null;
 	lastPingReceived: Date | null;
 	connectionObserver: ConnectionObserver | null;
 	connectionObserverDefaultHandler: (receivedBytes: number) => void;
 
-	constructor(
+	public constructor(
 		channelName: string,
 		userName: string,
 		localStream: MediaStream,
 		remoteView: HTMLVideoElement,
-		retryMethod: RetryCondition,
 		logger: KVSLogger
 	) {
 		super(Role.VIEWER, channelName, userName, logger);
 		this.remoteView = remoteView;
 		this.localStream = localStream;
-		this.retryMethod = retryMethod;
 		this.lastRetry = null;
 		this.pingChannel = null;
 		this.lastPingReceived = null;
 		this.connectionObserver = null;
 		this.connectionObserverDefaultHandler = (d) => {
-			return;
+			return d;
 		};
 	}
-	async init() {
+
+	public async init() {
 		await super.init();
 
 		const sendChannel = this.peerConnection?.createDataChannel('ping');
@@ -98,7 +96,7 @@ export default class Viewer extends WebRTCClient {
 		this.log('system', `Initialized`);
 	}
 
-	startWebRTC = async () => {
+	public startWebRTC = async () => {
 		this.log('SDP', `Creating SDP offer`);
 
 		if (this.localStream) {
@@ -131,23 +129,16 @@ export default class Viewer extends WebRTCClient {
 		await this.connectionObserver?.start();
 	};
 
-	stopWebRTC() {
+	public stopWebRTC() {
 		this.peerConnection?.close();
 	}
 
-	async retryWebRTC() {
+	public async retryWebRTC() {
 		this.log('WebRTC', `Retry WebRTC`);
 
 		// if disconnected from KVS, connect again
 		if (!this.connectedKVS) this.connectKVS();
 		this.receivedTraffics = 0;
-
-		let level = ConnectionLevel.DIRECT;
-		const now = Date.now();
-		if (this.lastRetry && now - this.lastRetry.getTime() < 1000 * 15)
-			level = (await this.getCurrentLevel()) + 1;
-		if (level >= 2) return;
-		this.lastRetry = new Date(now);
 
 		// Get and Apply ice server(STUN, TURN)
 		let ChannelARN, iceServerList;
@@ -158,6 +149,13 @@ export default class Viewer extends WebRTCClient {
 			alert('unable to restart!');
 			return;
 		}
+
+		let level = ConnectionLevel.DIRECT;
+		const now = Date.now();
+		if (this.lastRetry && now - this.lastRetry.getTime() < 1000 * 15)
+			level = this.connectionLevel + 1;
+		if (level > ConnectionLevel.TURN) return alert('15초 이내 재시도 회수가 너무 많아요');
+		this.lastRetry = new Date(now);
 
 		this.peerConnection?.setConfiguration({
 			iceServers: iceServerList,
@@ -180,22 +178,40 @@ export default class Viewer extends WebRTCClient {
 		await this.connectionObserver?.restart();
 	}
 
-	async getCurrentLevel(): Promise<ConnectionLevel> {
-		let candidate;
-		try {
-			candidate = (await this.getCandidates()).localCandidate;
-		} catch (e) {
-			throw new Error(`error on ${e}`);
-		}
-
-		if (candidate.candidateType === 'relay' && candidate.protocol === 'udp') {
-			return ConnectionLevel.TURN;
-		} else {
-			return ConnectionLevel.DIRECT;
-		}
+	public registerConnectionObserverDefaultHandler(handler: (receivedBytes: number) => void) {
+		this.connectionObserverDefaultHandler = handler;
 	}
 
-	registerConnectionObserverDefaultHandler(handler: (receivedBytes: number) => void) {
-		this.connectionObserverDefaultHandler = handler;
+	public registerIceConnectionStateHandler(handler: (state: string) => void): void {
+		super.registerIceConnectionStateHandler(async (state) => {
+			handler(state);
+
+			if (this.retryMethod === RetryCondition.AFTER_FAILED && state === 'failed') {
+				this.log('system', 'WebRTC connection failed. Try to restart!');
+				this.retryWebRTC();
+			} else if (
+				this.retryMethod === RetryCondition.AFTER_DISCONNECTED &&
+				state === 'disconnected'
+			) {
+				this.log(
+					'system',
+					'WebRTC connection disconnected. Try to restart after check disconnection!'
+				);
+				if (await this.connectionObserver?.checkDisconnected()) {
+					this.retryWebRTC();
+					this.log('system', 'Try to restart!');
+				}
+			}
+			// else if (this.retryMethod === RetryCondition.RIGHT_AFTER_DISCONNECTED) {}
+		});
+	}
+
+	public registerConnectionStateHandler(handler: (state: string) => void): void {
+		super.registerConnectionStateHandler((state) => {
+			if (state === 'failed' && this.peerConnection?.iceConnectionState === 'disconnected') {
+				this.iceConnectionStateHandler?.('failed');
+			}
+			handler(state);
+		});
 	}
 }
