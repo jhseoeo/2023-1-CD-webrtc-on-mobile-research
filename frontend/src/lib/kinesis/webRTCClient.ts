@@ -102,6 +102,7 @@ export default class WebRTCClient {
 
 		this.signalingClient.on('error', (e) => {
 			this.log('Error', `Signaling client error : ${e}`);
+			console.log('Signaling client error :', e);
 		});
 
 		this.peerConnection.addEventListener('iceconnectionstatechange', (event) => {

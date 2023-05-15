@@ -47,7 +47,7 @@ export default class ConnectionObserver {
 
 			const lastPingReceived = this.getLastPingReceived();
 
-			console.log(lastPingReceived, this.noBytesCount);
+			console.log(lastPingReceived, this.noBytesCount, navigator.onLine);
 
 			if (
 				this.noBytesCount >= DISCONNECT_COUNT &&
@@ -87,5 +87,14 @@ export default class ConnectionObserver {
 		)
 			return true;
 		else return false;
+	}
+
+	public async waitUntilNetworkRecover(seconds: number) {
+		for (let i = 0; i < seconds; i++) {
+			if (navigator.onLine === true) return true;
+
+			await asyncSleep(1000);
+		}
+		return false;
 	}
 }

@@ -42,8 +42,7 @@ export default class Viewer extends WebRTCClient {
 			this.pingChannel.onopen = () => {
 				this.log('DataChannel', 'Datachannel is opened');
 			};
-			this.pingChannel.onmessage = (e) => {
-				console.log(e.data);
+			this.pingChannel.onmessage = () => {
 				this.lastPingReceived = new Date();
 			};
 			this.pingChannel.onclose = () => {
@@ -136,6 +135,12 @@ export default class Viewer extends WebRTCClient {
 	public async retryWebRTC() {
 		this.log('WebRTC', `Retry WebRTC`);
 
+		if (await this.connectionObserver?.waitUntilNetworkRecover(10000)) {
+			this.log('System', `Network Recovered`);
+		} else {
+			return alert('network unavailable!');
+		}
+
 		// if disconnected from KVS, connect again
 		if (!this.connectedKVS) this.connectKVS();
 		this.receivedTraffics = 0;
@@ -146,8 +151,7 @@ export default class Viewer extends WebRTCClient {
 			ChannelARN = await Kinesis.getSignalingChannelARN(this.channelName);
 			iceServerList = await Kinesis.getIceServerList(ChannelARN, Role.VIEWER);
 		} catch (e) {
-			alert('unable to restart!');
-			return;
+			return alert('unable to restart!');
 		}
 
 		let level = ConnectionLevel.DIRECT;
