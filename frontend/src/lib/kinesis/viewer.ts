@@ -95,7 +95,19 @@ export default class Viewer extends WebRTCClient {
 		this.log('system', `Initialized`);
 	}
 
-	public startWebRTC = async () => {
+	public async resetKVS() {
+		await super.resetKVS();
+
+		this.signalingClient?.on('sdpAnswer', async (answer) => {
+			// Add the SDP answer to the peer connection
+			this.log('SDP', `Received SDP answer`);
+			await this.peerConnection?.setRemoteDescription(answer);
+		});
+
+		this.signalingClient?.open();
+	}
+
+	public async startWebRTC() {
 		this.log('SDP', `Creating SDP offer`);
 
 		if (this.localStream) {
@@ -126,7 +138,7 @@ export default class Viewer extends WebRTCClient {
 
 		this.lastRetry = new Date();
 		await this.connectionObserver?.start();
-	};
+	}
 
 	public stopWebRTC() {
 		this.peerConnection?.close();

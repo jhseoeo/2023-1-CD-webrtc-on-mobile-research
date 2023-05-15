@@ -12,7 +12,7 @@ import {
 
 export default class WebRTCClient {
 	peerConnection: RTCPeerConnection | null;
-	signalingClient: SignalingClient | null;
+	signalingClient?: SignalingClient | null;
 	connectedKVS: boolean;
 	role: Role;
 	channelName: string;
@@ -122,6 +122,49 @@ export default class WebRTCClient {
 			if (this.connectionStateHandler)
 				this.connectionStateHandler((event.target as RTCPeerConnection).connectionState);
 		};
+	}
+
+	public async resetKVS() {
+		delete this.signalingClient;
+
+		const ChannelARN = await Kinesis.getSignalingChannelARN(this.channelName);
+		const wssEndpoint = await Kinesis.getEndpoints(ChannelARN, 'WSS', this.role);
+		const iceServerList = await Kinesis.getIceServerList(ChannelARN, this.role);
+		if (wssEndpoint === undefined || iceServerList === undefined)
+			return alert('Error on initialize');
+
+		this.signalingClient = new SignalingClient({
+			role: this.role,
+			clientId: this.role == Role.MASTER ? undefined : this.clientId,
+			region: config.kinesisRegion,
+			channelARN: ChannelARN,
+			channelEndpoint: wssEndpoint,
+			credentials: {
+				accessKeyId: config.kinesisAccessKeyId,
+				secretAccessKey: config.kinesisSecretAccessKey
+			}
+		});
+
+		this.signalingClient.on('open', async () => {
+			if (this.kvsConnectionStateHandler) {
+				this.connectedKVS = true;
+				this.kvsConnectionStateHandler?.('connected');
+			}
+			this.log('KVS', `Connected to signaling service`);
+		});
+
+		this.signalingClient.on('close', () => {
+			if (this.kvsConnectionStateHandler) {
+				this.connectedKVS = false;
+				this.kvsConnectionStateHandler('disconnected');
+			}
+			this.log('KVS', `Disconnected from signaling channel`);
+		});
+
+		this.signalingClient.on('error', (e) => {
+			this.log('Error', `Signaling client error : ${e}`);
+			console.log('Signaling client error :', e);
+		});
 	}
 
 	/**

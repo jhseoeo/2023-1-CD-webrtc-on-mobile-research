@@ -82,6 +82,11 @@
 			viewer?.disconnectKVS();
 		}}>Disconnect</button
 	>
+	<button
+		on:click={() => {
+			viewer?.resetKVS();
+		}}>Reset</button
+	>
 	<span bind:innerHTML={kvsConnectionState} contenteditable="false" /><br />
 
 	<hr />
