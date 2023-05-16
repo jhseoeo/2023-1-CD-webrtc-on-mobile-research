@@ -1,18 +1,18 @@
-import Kinesis from './kinesis';
 import WebRTCClient from './webRTCClient';
 import { RetryCondition, ConnectionLevel } from './constants';
 import { Role } from 'amazon-kinesis-video-streams-webrtc/lib/Role';
 import type KVSLogger from '$lib/logger/kvsLogger';
 import ConnectionObserver from './connectionObserver';
+import { isDeviceIOS } from '$lib/utils';
 
 export default class Viewer extends WebRTCClient {
-	remoteView: HTMLVideoElement;
-	localStream: MediaStream;
-	lastRetry: Date | null;
-	pingChannel: RTCDataChannel | null;
-	lastPingReceived: Date | null;
-	connectionObserver: ConnectionObserver | null;
-	connectionObserverDefaultHandler: (receivedBytes: number) => void;
+	private remoteView: HTMLVideoElement;
+	private localStream: MediaStream;
+	private lastRetry: Date | null;
+	private pingChannel: RTCDataChannel | null;
+	private lastPingReceived: Date | null;
+	private connectionObserver: ConnectionObserver | null;
+	private connectionObserverDefaultHandler: (receivedBytes: number) => void;
 
 	public constructor(
 		channelName: string,
@@ -88,13 +88,61 @@ export default class Viewer extends WebRTCClient {
 				},
 				this.connectionObserverDefaultHandler,
 				() => {
-					if (this.retryMethod === RetryCondition.BEFORE_DISCONNECTED) {
+					if (this.retryCondition === RetryCondition.BEFORE_DISCONNECTED) {
 						this.retryWebRTC();
 					}
 				}
 			);
 
 		this.log('system', `Initialized`);
+	}
+
+	public registerConnectionObserverDefaultHandler(handler: (receivedBytes: number) => void) {
+		this.connectionObserverDefaultHandler = handler;
+	}
+
+	public registerIceConnectionStateHandler(handler: (state: string) => void): void {
+		super.registerIceConnectionStateHandler(async (state) => {
+			handler(state);
+
+			if (this.retryCondition === RetryCondition.AFTER_FAILED && state === 'failed') {
+				this.log('system', 'WebRTC connection failed. Try to restart!');
+				this.retryWebRTC();
+			} else if (
+				this.retryCondition === RetryCondition.AFTER_DISCONNECTED &&
+				state === 'disconnected'
+			) {
+				this.log(
+					'system',
+					'WebRTC connection disconnected. Try to restart after check disconnection!'
+				);
+				if (await this.connectionObserver?.checkDisconnected()) {
+					this.retryWebRTC();
+					this.log('system', 'Try to restart!');
+				}
+			} else if (
+				this.retryCondition === RetryCondition.RIGHT_AFTER_DISCONNECTED &&
+				state === 'disconnected'
+			) {
+				this.log(
+					'system',
+					'WebRTC connection disconnected. Try to restart after check disconnection!'
+				);
+				if (this.connectionObserver?.isDisconnected()) {
+					this.retryWebRTC();
+					this.log('system', 'Try to restart!');
+				}
+			}
+		});
+	}
+
+	public registerConnectionStateHandler(handler: (state: string) => void): void {
+		super.registerConnectionStateHandler((state) => {
+			if (state === 'failed' && this.peerConnection?.iceConnectionState === 'disconnected') {
+				this.iceConnectionStateHandler?.('failed');
+			}
+			handler(state);
+		});
 	}
 
 	public async resetKVS() {
@@ -149,24 +197,21 @@ export default class Viewer extends WebRTCClient {
 	public async retryWebRTC() {
 		this.log('WebRTC', `Retry WebRTC`);
 
-		if (await this.connectionObserver?.waitUntilNetworkRecover(10000)) {
-			this.log('System', `Network Recovered`);
-		} else {
-			return alert('network unavailable!');
-		}
+		if (!navigator.onLine)
+			if (await this.connectionObserver?.waitUntilNetworkRecover(10000)) {
+				this.log('System', `Network Recovered`);
+			} else {
+				return alert('network unavailable!');
+			}
 
+		// if device is connected on ios safari, reset KVS to discard staled websocket
+		if (isDeviceIOS()) await this.resetKVS();
 		// if disconnected from KVS, connect again
-		if (!this.connectedKVS) this.connectKVS();
+		else if (!this.connectedKVS) this.connectKVS();
 		this.receivedTraffics = 0;
 
 		// Get and Apply ice server(STUN, TURN)
-		let ChannelARN, iceServerList;
-		try {
-			ChannelARN = await Kinesis.getSignalingChannelARN(this.channelName);
-			iceServerList = await Kinesis.getIceServerList(ChannelARN, Role.VIEWER);
-		} catch (e) {
-			return alert('unable to restart!');
-		}
+		const iceServerList = await this.getIceServerList(this.channelARN);
 
 		let level = ConnectionLevel.DIRECT;
 		const now = Date.now();
@@ -194,54 +239,5 @@ export default class Viewer extends WebRTCClient {
 		this.log('ICE', `Generating ICE candidates`);
 
 		await this.connectionObserver?.restart();
-	}
-
-	public registerConnectionObserverDefaultHandler(handler: (receivedBytes: number) => void) {
-		this.connectionObserverDefaultHandler = handler;
-	}
-
-	public registerIceConnectionStateHandler(handler: (state: string) => void): void {
-		super.registerIceConnectionStateHandler(async (state) => {
-			handler(state);
-
-			if (this.retryMethod === RetryCondition.AFTER_FAILED && state === 'failed') {
-				this.log('system', 'WebRTC connection failed. Try to restart!');
-				this.retryWebRTC();
-			} else if (
-				this.retryMethod === RetryCondition.AFTER_DISCONNECTED &&
-				state === 'disconnected'
-			) {
-				this.log(
-					'system',
-					'WebRTC connection disconnected. Try to restart after check disconnection!'
-				);
-				if (await this.connectionObserver?.checkDisconnected()) {
-					this.retryWebRTC();
-					this.log('system', 'Try to restart!');
-				}
-			} else if (
-				this.retryMethod === RetryCondition.RIGHT_AFTER_DISCONNECTED &&
-				state === 'disconnected'
-			) {
-				this.log(
-					'system',
-					'WebRTC connection disconnected. Try to restart after check disconnection!'
-				);
-				if (this.connectionObserver?.isDisconnected()) {
-					this.retryWebRTC();
-					this.log('system', 'Try to restart!');
-				}
-			}
-			// else if (this.retryMethod === RetryCondition.RIGHT_AFTER_DISCONNECTED) {}
-		});
-	}
-
-	public registerConnectionStateHandler(handler: (state: string) => void): void {
-		super.registerConnectionStateHandler((state) => {
-			if (state === 'failed' && this.peerConnection?.iceConnectionState === 'disconnected') {
-				this.iceConnectionStateHandler?.('failed');
-			}
-			handler(state);
-		});
 	}
 }

@@ -1,11 +1,10 @@
 import { Role } from 'amazon-kinesis-video-streams-webrtc/lib/Role';
 import WebRTCClient from './webRTCClient';
-import type { RetryCondition } from './constants';
 import type KVSLogger from '$lib/logger/kvsLogger';
 
 export default class Master extends WebRTCClient {
-	localStream: MediaStream;
-	pingChannel: RTCDataChannel | null;
+	private localStream: MediaStream;
+	private pingChannel: RTCDataChannel | null;
 
 	constructor(channelName: string, userName: string, localStream: MediaStream, logger: KVSLogger) {
 		super(Role.MASTER, channelName, userName, logger);

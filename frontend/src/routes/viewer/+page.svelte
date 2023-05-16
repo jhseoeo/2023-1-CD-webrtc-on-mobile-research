@@ -22,8 +22,8 @@
 	let printConsole = config.printConsole;
 	let turnOnly = config.turnOnly;
 
-	let handleRetryMethodChange = (event: Event) => {
-		viewer?.changeRetryMethod((event.target as HTMLInputElement).value as RetryCondition)
+	let handleRetryConditionChange = (event: Event) => {
+		viewer?.setRetryCondition((event.target as HTMLInputElement).value as RetryCondition)
 	}
 
 
@@ -159,7 +159,7 @@
 			type="checkbox"
 			bind:checked={turnOnly}
 			on:change={() => {
-				viewer?.toggleTURNOnly(turnOnly);
+				viewer?.setTURNOnly(turnOnly);
 			}}
 		/>
 	</div>
@@ -168,27 +168,27 @@
 		<legend>Retry Method</legend>
 	
 		<div>
-		  <input type="radio" bind:group={retryMethod} name="retryMethod" value={RetryCondition.NO_RETRY} on:change={handleRetryMethodChange} checked>
+		  <input type="radio" bind:group={retryMethod} name="retryMethod" value={RetryCondition.NO_RETRY} on:change={handleRetryConditionChange} checked>
 		  <label for="no_retry">no_retry</label>
 		</div>
 	
 		<div>
-		  <input type="radio" bind:group={retryMethod} name="retryMethod" value={RetryCondition.AFTER_FAILED} on:change={handleRetryMethodChange}>
+		  <input type="radio" bind:group={retryMethod} name="retryMethod" value={RetryCondition.AFTER_FAILED} on:change={handleRetryConditionChange}>
 		  <label for="after_failed">after_failed</label>
 		</div>
 	
 		<div>
-		  <input type="radio" bind:group={retryMethod} name="retryMethod" value={RetryCondition.AFTER_DISCONNECTED} on:change={handleRetryMethodChange}>
+		  <input type="radio" bind:group={retryMethod} name="retryMethod" value={RetryCondition.AFTER_DISCONNECTED} on:change={handleRetryConditionChange}>
 		  <label for="after_disconnected">after_disconnected</label>
 		</div>
 
 		<div>
-			<input type="radio" bind:group={retryMethod} name="retryMethod" value={RetryCondition.RIGHT_AFTER_DISCONNECTED} on:change={handleRetryMethodChange}>
+			<input type="radio" bind:group={retryMethod} name="retryMethod" value={RetryCondition.RIGHT_AFTER_DISCONNECTED} on:change={handleRetryConditionChange}>
 			<label for="right_after_disconnected">right_after_disconnected</label>
 		  </div>
 
 		<div>
-			<input type="radio" bind:group={retryMethod} name="retryMethod" value={RetryCondition.BEFORE_DISCONNECTED} on:change={handleRetryMethodChange}>
+			<input type="radio" bind:group={retryMethod} name="retryMethod" value={RetryCondition.BEFORE_DISCONNECTED} on:change={handleRetryConditionChange}>
 			<label for="before_disconnected">before_disconnected</label>
 		</div>
 	</fieldset>

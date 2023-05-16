@@ -11,117 +11,81 @@ import {
 } from './constants';
 
 export default class WebRTCClient {
-	peerConnection: RTCPeerConnection | null;
-	signalingClient?: SignalingClient | null;
-	connectedKVS: boolean;
-	role: Role;
-	channelName: string;
-	clientId: string;
-	turnOnly: boolean;
-	retryMethod: RetryCondition;
-	connectionLevel: ConnectionLevel;
-	tracks: Array<RTCRtpSender>;
-	receivedTraffics: number;
-	logger: KVSLogger;
-	kvsConnectionStateHandler: ((state: string) => void) | null;
-	iceConnectionStateHandler: ((state: string) => void) | null;
-	connectionStateHandler: ((state: string) => void) | null;
-	pingReceiveHandler: ((message: string) => void) | null;
+	protected channelName: string;
+	protected channelARN: string;
+	protected clientId: string;
+	protected role: Role;
+	protected peerConnection: RTCPeerConnection | null;
+	protected signalingClient?: SignalingClient | null;
+	protected connectedKVS: boolean;
+	protected turnOnly: boolean;
+	protected retryCondition: RetryCondition;
+	protected connectionLevel: ConnectionLevel;
+	protected tracks: Array<RTCRtpSender>;
+	protected logger: KVSLogger;
+	protected receivedTraffics: number;
+	protected kvsConnectionStateHandler: (state: string) => void;
+	protected iceConnectionStateHandler: (state: string) => void;
+	protected connectionStateHandler: (state: string) => void;
+	protected pingReceiveHandler: (message: string) => void;
 
 	constructor(role: Role, channelName: string, userName: string, logger: KVSLogger) {
+		this.channelName = channelName;
+		this.channelARN = '';
+		this.clientId = userName;
+		this.role = role;
 		this.peerConnection = null;
 		this.signalingClient = null;
 		this.connectedKVS = false;
-		this.role = role;
-		this.channelName = channelName;
-		this.clientId = userName;
 		this.turnOnly = config.turnOnly;
-		this.retryMethod = RetryCondition.NO_RETRY;
+		this.retryCondition = RetryCondition.NO_RETRY;
 		this.connectionLevel = ConnectionLevel.DIRECT;
 		this.tracks = [];
 		this.receivedTraffics = 0;
 		this.logger = logger;
-		this.kvsConnectionStateHandler = null;
-		this.iceConnectionStateHandler = null;
-		this.connectionStateHandler = null;
-		this.pingReceiveHandler = null;
+		this.kvsConnectionStateHandler = () => {
+			return;
+		};
+		this.iceConnectionStateHandler = () => {
+			return;
+		};
+		this.connectionStateHandler = () => {
+			return;
+		};
+		this.pingReceiveHandler = () => {
+			return;
+		};
+	}
+
+	/**
+	 * Register Callback called on KVS Connection State changed
+	 */
+	public registerKvsConnectionStateHandler(handler: (state: string) => void) {
+		this.kvsConnectionStateHandler = handler;
+	}
+
+	/**
+	 * Register Callback called on RTCPeerConnection.iceConnectionState changed
+	 */
+	public registerIceConnectionStateHandler(handler: (state: string) => void) {
+		this.iceConnectionStateHandler = handler;
+	}
+
+	/**
+	 * Register Callback called on RTCPeerConnection.connectionState changed
+	 */
+	public registerConnectionStateHandler(handler: (state: string) => void) {
+		this.connectionStateHandler = handler;
 	}
 
 	/**
 	 * Initialize WebRTC Client
 	 */
 	public async init() {
-		const ChannelARN = await Kinesis.getSignalingChannelARN(this.channelName);
-		const wssEndpoint = await Kinesis.getEndpoints(ChannelARN, 'WSS', this.role);
-		const iceServerList = await Kinesis.getIceServerList(ChannelARN, this.role);
-		if (wssEndpoint === undefined || iceServerList === undefined)
-			return alert('Error on initialize');
-
-		this.signalingClient = new SignalingClient({
-			role: this.role,
-			clientId: this.role == Role.MASTER ? undefined : this.clientId,
-			region: config.kinesisRegion,
-			channelARN: ChannelARN,
-			channelEndpoint: wssEndpoint,
-			credentials: {
-				accessKeyId: config.kinesisAccessKeyId,
-				secretAccessKey: config.kinesisSecretAccessKey
-			}
-		});
-
-		this.peerConnection = new RTCPeerConnection({
-			iceServers: iceServerList,
-			iceTransportPolicy: this.turnOnly ? 'relay' : 'all'
-		});
-
-		this.signalingClient.on('open', async () => {
-			if (this.kvsConnectionStateHandler) {
-				this.connectedKVS = true;
-				this.kvsConnectionStateHandler?.('connected');
-			}
-			this.log('KVS', `Connected to signaling service`);
-		});
-
-		this.signalingClient.on('iceCandidate', async (candidate, remoteClientId) => {
-			this.log(
-				'ICE',
-				`Received ICE candidate from client: ${remoteClientId}, ${candidate.candidate}`
-			);
-
-			// Add the ICE candidate received from the client to the peer connection
-			this.peerConnection?.addIceCandidate(candidate);
-		});
-
-		this.signalingClient.on('close', () => {
-			if (this.kvsConnectionStateHandler) {
-				this.connectedKVS = false;
-				this.kvsConnectionStateHandler('disconnected');
-			}
-			this.log('KVS', `Disconnected from signaling channel`);
-		});
-
-		this.signalingClient.on('error', (e) => {
-			this.log('Error', `Signaling client error : ${e}`);
-			console.log('Signaling client error :', e);
-		});
-
-		this.peerConnection.addEventListener('iceconnectionstatechange', (event) => {
-			this.log(
-				'WebRTC',
-				`iceConnectionState changed : ${(event.target as RTCPeerConnection).iceConnectionState}`
-			);
-			if (this.iceConnectionStateHandler)
-				this.iceConnectionStateHandler((event.target as RTCPeerConnection).iceConnectionState);
-		});
-
-		this.peerConnection.onconnectionstatechange = (event) => {
-			this.log(
-				'WebRTC',
-				`connectionState changed : ${(event.target as RTCPeerConnection).connectionState}`
-			);
-			if (this.connectionStateHandler)
-				this.connectionStateHandler((event.target as RTCPeerConnection).connectionState);
-		};
+		this.channelARN = await Kinesis.getSignalingChannelARN(this.channelName);
+		const iceServerList = await this.getIceServerList(this.channelARN);
+		this.peerConnection = await this.newPeerConneciton(iceServerList);
+		this.signalingClient = await this.newSignalingClient(this.channelARN);
 	}
 
 	/**
@@ -129,45 +93,7 @@ export default class WebRTCClient {
 	 */
 	public async resetKVS() {
 		delete this.signalingClient;
-
-		const ChannelARN = await Kinesis.getSignalingChannelARN(this.channelName);
-		const wssEndpoint = await Kinesis.getEndpoints(ChannelARN, 'WSS', this.role);
-		const iceServerList = await Kinesis.getIceServerList(ChannelARN, this.role);
-		if (wssEndpoint === undefined || iceServerList === undefined)
-			return alert('Error on initialize');
-
-		this.signalingClient = new SignalingClient({
-			role: this.role,
-			clientId: this.role == Role.MASTER ? undefined : this.clientId,
-			region: config.kinesisRegion,
-			channelARN: ChannelARN,
-			channelEndpoint: wssEndpoint,
-			credentials: {
-				accessKeyId: config.kinesisAccessKeyId,
-				secretAccessKey: config.kinesisSecretAccessKey
-			}
-		});
-
-		this.signalingClient.on('open', async () => {
-			if (this.kvsConnectionStateHandler) {
-				this.connectedKVS = true;
-				this.kvsConnectionStateHandler?.('connected');
-			}
-			this.log('KVS', `Connected to signaling service`);
-		});
-
-		this.signalingClient.on('close', () => {
-			if (this.kvsConnectionStateHandler) {
-				this.connectedKVS = false;
-				this.kvsConnectionStateHandler('disconnected');
-			}
-			this.log('KVS', `Disconnected from signaling channel`);
-		});
-
-		this.signalingClient.on('error', (e) => {
-			this.log('Error', `Signaling client error : ${e}`);
-			console.log('Signaling client error :', e);
-		});
+		this.signalingClient = await this.newSignalingClient(this.channelARN);
 	}
 
 	/**
@@ -195,26 +121,60 @@ export default class WebRTCClient {
 		this.peerConnection?.dispatchEvent(new Event('connectionstatechange'));
 	}
 
-	public registerKvsConnectionStateHandler(handler: (state: string) => void) {
-		this.kvsConnectionStateHandler = handler;
-	}
-
-	public registerIceConnectionStateHandler(handler: (state: string) => void) {
-		this.iceConnectionStateHandler = handler;
-	}
-
-	public registerConnectionStateHandler(handler: (state: string) => void) {
-		this.connectionStateHandler = handler;
-	}
-
-	public toggleTURNOnly(onOff: boolean) {
+	/**
+	 * Set TURN only configuration
+	 */
+	public setTURNOnly(onOff: boolean) {
 		this.turnOnly = onOff;
 	}
 
-	public changeRetryMethod(retryMethod: RetryCondition) {
-		this.retryMethod = retryMethod;
+	/**
+	 * Set retry condition
+	 */
+	public setRetryCondition(retryMethod: RetryCondition) {
+		this.retryCondition = retryMethod;
 	}
 
+	/**
+	 * Get current local-remote candidates pair
+	 */
+	public async getCandidates(): Promise<LocalAndRemoteIceCandidateStats> {
+		const stats = await this.getWebRTCStats();
+		const candidatePairs = await this.getCurrentCandidatePair(stats);
+		const localCandidate: RTCicecandidateStats = stats.get(candidatePairs.localCandidateId);
+		const remoteCandidate: RTCicecandidateStats = stats.get(candidatePairs.remoteCandidateId);
+
+		this.log(
+			'WebRTC',
+			`local candidate : ${JSON.stringify(
+				localCandidate
+			)} /// connected candidate : ${JSON.stringify(remoteCandidate)}`
+		);
+
+		if (localCandidate.candidateType === 'relay' && localCandidate.protocol === 'udp') {
+			this.connectionLevel = ConnectionLevel.TURN;
+		} else {
+			this.connectionLevel = ConnectionLevel.DIRECT;
+		}
+
+		return { localCandidate, remoteCandidate };
+	}
+
+	/**
+	 * Get amount of traffics received
+	 */
+	protected async getReceivedTraffics(): Promise<number> {
+		const stats = await this.getWebRTCStats();
+		const candidatePairs = await this.getCurrentCandidatePair(stats);
+		const receivedBytes = candidatePairs.bytesReceived || 0;
+		const result = receivedBytes - this.receivedTraffics;
+		this.receivedTraffics = receivedBytes;
+		return result;
+	}
+
+	/**
+	 * Post log to log server
+	 */
 	protected async log(type: string, content: string) {
 		await this.logger.postLog(
 			this.channelName,
@@ -225,85 +185,136 @@ export default class WebRTCClient {
 		);
 	}
 
-	public getCandidates(): Promise<LocalAndRemoteIceCandidateStats> {
-		return new Promise((resolve, reject) => {
-			this.peerConnection
-				?.getStats(null)
-				.then((stats) => {
-					const candidatePairs: RTCIceCandidatePairStats[] = [];
-					stats.forEach((report) => {
-						if (report.type == 'candidate-pair' && report.nominated && report.state == 'succeeded')
-							candidatePairs.push(report);
-					});
+	/**
+	 * Generate new SiganlingClient and return it
+	 */
+	private async newSignalingClient(channelARN: string): Promise<SignalingClient> {
+		const wssEndpoint = await Kinesis.getEndpoints(channelARN, 'WSS', this.role);
+		if (wssEndpoint === undefined) {
+			alert('Error on initialize KVS Channel: wssEndpoint is undefined');
+			throw new Error('Error on initialize KVS Channel: wssEndpoint is undefined');
+		}
 
-					if (candidatePairs.length === 0) return reject('No succeeded candidate pair exist');
-
-					candidatePairs.sort((a, b) => {
-						if (
-							a.lastPacketReceivedTimestamp !== undefined &&
-							b.lastPacketReceivedTimestamp !== undefined
-						)
-							return b.lastPacketReceivedTimestamp - a.lastPacketReceivedTimestamp;
-						else return 0;
-					});
-
-					const localCandidate: RTCicecandidateStats = stats.get(
-						candidatePairs[0].localCandidateId
-					);
-					const remoteCandidate: RTCicecandidateStats = stats.get(
-						candidatePairs[0].remoteCandidateId
-					);
-
-					if (localCandidate.candidateType === 'relay' && localCandidate.protocol === 'udp') {
-						this.connectionLevel = ConnectionLevel.TURN;
-					} else {
-						this.connectionLevel = ConnectionLevel.DIRECT;
-					}
-
-					this.log(
-						'WebRTC',
-						`local candidate : ${JSON.stringify(
-							localCandidate
-						)} /// connected candidate : ${JSON.stringify(remoteCandidate)}`
-					);
-					return resolve({ localCandidate, remoteCandidate });
-				})
-				.catch((e) => {
-					return reject(e);
-				});
+		const signalingClient = new SignalingClient({
+			role: this.role,
+			clientId: this.role == Role.MASTER ? undefined : this.clientId,
+			region: config.kinesisRegion,
+			channelARN: channelARN,
+			channelEndpoint: wssEndpoint,
+			credentials: {
+				accessKeyId: config.kinesisAccessKeyId,
+				secretAccessKey: config.kinesisSecretAccessKey
+			}
 		});
+
+		signalingClient.on('open', async () => {
+			if (this.kvsConnectionStateHandler) {
+				this.connectedKVS = true;
+				this.kvsConnectionStateHandler?.('connected');
+			}
+			this.log('KVS', `Connected to signaling service`);
+		});
+
+		signalingClient.on('iceCandidate', async (candidate, remoteClientId) => {
+			this.log(
+				'ICE',
+				`Received ICE candidate from client: ${remoteClientId}, ${candidate.candidate}`
+			);
+
+			// Add the ICE candidate received from the client to the peer connection
+			this.peerConnection?.addIceCandidate(candidate);
+		});
+
+		signalingClient.on('close', () => {
+			if (this.kvsConnectionStateHandler) {
+				this.connectedKVS = false;
+				this.kvsConnectionStateHandler('disconnected');
+			}
+			this.log('KVS', `Disconnected from signaling channel`);
+		});
+
+		signalingClient.on('error', (e) => {
+			this.log('Error', `Signaling client error : ${e}`);
+			console.log('Signaling client error :', e);
+		});
+
+		return signalingClient;
 	}
 
-	protected getReceivedTraffics(): Promise<number> {
-		return new Promise((resolve, reject) => {
-			this.peerConnection
-				?.getStats(null)
-				.then((stats) => {
-					const candidatePairs: RTCIceCandidatePairStats[] = [];
-					stats.forEach((report) => {
-						if (report.type == 'candidate-pair' && report.nominated && report.state == 'succeeded')
-							candidatePairs.push(report);
-					});
+	/**
+	 * Get STUN and TURN server list
+	 */
+	protected async getIceServerList(channelARN: string) {
+		const iceServerList = await Kinesis.getIceServerList(channelARN, this.role);
+		if (iceServerList === undefined) {
+			if (iceServerList === undefined) {
+				alert('Error on initialize KVS Channel: iceServerList is undefined');
+				throw new Error('Error on initialize KVS Channel: iceServerList is undefined');
+			}
+		}
 
-					if (candidatePairs.length === 0) return reject('No succeeded candidate pair exist');
+		return iceServerList;
+	}
 
-					candidatePairs.sort((a, b) => {
-						if (
-							a.lastPacketReceivedTimestamp !== undefined &&
-							b.lastPacketReceivedTimestamp !== undefined
-						)
-							return b.lastPacketReceivedTimestamp - a.lastPacketReceivedTimestamp;
-						else return 0;
-					});
-
-					const receivedBytes = candidatePairs[0].bytesReceived || 0;
-					const result = receivedBytes - this.receivedTraffics;
-					this.receivedTraffics = receivedBytes;
-					return resolve(result);
-				})
-				.catch((e) => {
-					return reject(e);
-				});
+	/**
+	 * Generate new RTCPeerConnection and return it
+	 */
+	private async newPeerConneciton(iceServerList: RTCIceServer[]) {
+		const peerConnection = new RTCPeerConnection({
+			iceServers: iceServerList,
+			iceTransportPolicy: this.turnOnly ? 'relay' : 'all'
 		});
+
+		peerConnection.oniceconnectionstatechange = (event) => {
+			this.log(
+				'WebRTC',
+				`iceConnectionState changed : ${(event.target as RTCPeerConnection).iceConnectionState}`
+			);
+			if (this.iceConnectionStateHandler)
+				this.iceConnectionStateHandler((event.target as RTCPeerConnection).iceConnectionState);
+		};
+
+		peerConnection.onconnectionstatechange = (event) => {
+			this.log(
+				'WebRTC',
+				`connectionState changed : ${(event.target as RTCPeerConnection).connectionState}`
+			);
+			if (this.connectionStateHandler)
+				this.connectionStateHandler((event.target as RTCPeerConnection).connectionState);
+		};
+
+		return peerConnection;
+	}
+
+	private async getWebRTCStats() {
+		const stats = await this.peerConnection?.getStats(null);
+		if (stats === undefined || stats === null) {
+			throw new Error('Cannot get WebRTC Statistics');
+		} else {
+			return stats;
+		}
+	}
+
+	private async getCurrentCandidatePair(stats: RTCStatsReport) {
+		const candidatePairs: RTCIceCandidatePairStats[] = [];
+		stats?.forEach((report) => {
+			if (report.type == 'candidate-pair' && report.nominated && report.state == 'succeeded')
+				candidatePairs.push(report);
+		});
+
+		if (candidatePairs.length === 0) {
+			throw new Error('No succeeded candidate pair exist');
+		}
+
+		candidatePairs.sort((a, b) => {
+			if (
+				a.lastPacketReceivedTimestamp !== undefined &&
+				b.lastPacketReceivedTimestamp !== undefined
+			)
+				return b.lastPacketReceivedTimestamp - a.lastPacketReceivedTimestamp;
+			else return 0;
+		});
+
+		return candidatePairs[0];
 	}
 }
