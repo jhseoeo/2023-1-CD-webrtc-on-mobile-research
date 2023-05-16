@@ -88,7 +88,9 @@ export default class Viewer extends WebRTCClient {
 				},
 				this.connectionObserverDefaultHandler,
 				() => {
-					console.log('it looks disconnected!');
+					if (this.retryMethod === RetryCondition.BEFORE_DISCONNECTED) {
+						this.retryWebRTC();
+					}
 				}
 			);
 
@@ -214,6 +216,18 @@ export default class Viewer extends WebRTCClient {
 					'WebRTC connection disconnected. Try to restart after check disconnection!'
 				);
 				if (await this.connectionObserver?.checkDisconnected()) {
+					this.retryWebRTC();
+					this.log('system', 'Try to restart!');
+				}
+			} else if (
+				this.retryMethod === RetryCondition.RIGHT_AFTER_DISCONNECTED &&
+				state === 'disconnected'
+			) {
+				this.log(
+					'system',
+					'WebRTC connection disconnected. Try to restart after check disconnection!'
+				);
+				if (this.connectionObserver?.isDisconnected()) {
 					this.retryWebRTC();
 					this.log('system', 'Try to restart!');
 				}

@@ -55,7 +55,7 @@ export default class ConnectionObserver {
 				Date.now() - lastPingReceived.getDate() > DISCONNECT_TIME
 			) {
 				this.disconnected = true;
-				this.disconnectedHandler();
+				this.disconnectedHandler?.();
 			} else {
 				this.disconnected = false;
 			}
@@ -67,10 +67,13 @@ export default class ConnectionObserver {
 		this.start();
 	}
 
-	public async isDisconnected() {
+	public isDisconnected() {
 		return this.disconnected;
 	}
 
+	/**
+	 * After 2 seconds later,
+	 */
 	public async checkDisconnected() {
 		await asyncSleep(2000);
 

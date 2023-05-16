@@ -124,6 +124,9 @@ export default class WebRTCClient {
 		};
 	}
 
+	/**
+	 * Reset KVS Signaling Channel
+	 */
 	public async resetKVS() {
 		delete this.signalingClient;
 
