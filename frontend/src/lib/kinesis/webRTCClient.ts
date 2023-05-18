@@ -138,9 +138,12 @@ export default class WebRTCClient {
 	/**
 	 * Get current local-remote candidates pair
 	 */
-	public async getCandidates(): Promise<LocalAndRemoteIceCandidateStats> {
+	public async getCandidates(): Promise<LocalAndRemoteIceCandidateStats | null> {
 		const stats = await this.getWebRTCStats();
 		const candidatePairs = await this.getCurrentCandidatePair(stats);
+		if (candidatePairs === null) {
+			return null;
+		}
 		const localCandidate: RTCicecandidateStats = stats.get(candidatePairs.localCandidateId);
 		const remoteCandidate: RTCicecandidateStats = stats.get(candidatePairs.remoteCandidateId);
 
@@ -166,7 +169,7 @@ export default class WebRTCClient {
 	protected async getReceivedTraffics(): Promise<number> {
 		const stats = await this.getWebRTCStats();
 		const candidatePairs = await this.getCurrentCandidatePair(stats);
-		const receivedBytes = candidatePairs.bytesReceived || 0;
+		const receivedBytes = candidatePairs?.bytesReceived || 0;
 		const result = receivedBytes - this.receivedTraffics;
 		this.receivedTraffics = receivedBytes;
 		return result;
@@ -303,7 +306,7 @@ export default class WebRTCClient {
 		});
 
 		if (candidatePairs.length === 0) {
-			throw new Error('No succeeded candidate pair exist');
+			return null;
 		}
 
 		candidatePairs.sort((a, b) => {

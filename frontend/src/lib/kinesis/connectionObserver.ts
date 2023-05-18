@@ -9,6 +9,7 @@ export default class ConnectionObserver {
 	pingChannel: RTCDataChannel;
 	noBytesCount: number;
 	disconnected: boolean;
+	disconnectionDetectTime: Date | null;
 	getLastPingReceived: () => Date | null;
 	getReceivedBytes: () => Promise<number>;
 	defaultHandler: (receivedBytes: number) => void;
@@ -25,6 +26,7 @@ export default class ConnectionObserver {
 		this.pingChannel = channel;
 		this.noBytesCount = 0;
 		this.disconnected = false;
+		this.disconnectionDetectTime = null;
 		this.getLastPingReceived = getLastPingReceived;
 		this.getReceivedBytes = getReceivedBytes;
 		this.defaultHandler = defaultHandler;
@@ -35,18 +37,24 @@ export default class ConnectionObserver {
 		console.log('start connection observer');
 		this.noBytesCount = 0;
 
+		if (this.loop) clearInterval(this.loop);
 		this.loop = setInterval(async () => {
-			const receivedBytes = await this.getReceivedBytes().catch((reason) => {
-				if (reason === 'No succeeded candidate pair exist') return 0;
-				else throw Error('Unexpected Error :', reason);
-			});
+			const receivedBytes = await this.getReceivedBytes();
 			this.pingChannel.send('ping');
 			this.defaultHandler(receivedBytes);
-			if (receivedBytes == 0) this.noBytesCount++;
-			else this.noBytesCount = 0;
+			if (receivedBytes == 0) {
+				this.noBytesCount++;
+				if (this.disconnectionDetectTime === null) this.disconnectionDetectTime = new Date();
+			} else {
+				this.noBytesCount = 0;
+				if (this.disconnectionDetectTime !== null) {
+					const now = Date.now();
+					console.log(`${now - this.disconnectionDetectTime.getTime()} niliseconds to reconnect`);
+					this.disconnectionDetectTime = null;
+				}
+			}
 
 			const lastPingReceived = this.getLastPingReceived();
-
 			console.log(lastPingReceived, this.noBytesCount, navigator.onLine);
 
 			if (
@@ -62,27 +70,17 @@ export default class ConnectionObserver {
 		}, OBSERVER_INTERVAL);
 	}
 
-	public restart() {
-		if (this.loop) clearInterval(this.loop);
-		this.start();
-	}
-
 	public isDisconnected() {
 		return this.disconnected;
 	}
 
 	/**
-	 * After 2 seconds later,
+	 * After 2 seconds later, get whether webrtc is disconnected, checking last ping and receive bytes
 	 */
 	public async checkDisconnected() {
 		await asyncSleep(2000);
-
-		const receivedBytes = await this.getReceivedBytes().catch((reason) => {
-			if (reason === 'No succeeded candidate pair exist') return 0;
-			else throw Error('Unexpected Error :', reason);
-		});
+		const receivedBytes = await this.getReceivedBytes();
 		const lastPingReceived = this.getLastPingReceived();
-
 		if (
 			receivedBytes == 0 &&
 			lastPingReceived &&
@@ -92,6 +90,9 @@ export default class ConnectionObserver {
 		else return false;
 	}
 
+	/**
+	 * Wait until navigator.onLine is available
+	 */
 	public async waitUntilNetworkRecover(seconds: number) {
 		for (let i = 0; i < seconds; i++) {
 			if (navigator.onLine === true) return true;

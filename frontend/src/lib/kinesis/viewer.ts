@@ -181,11 +181,7 @@ export default class Viewer extends WebRTCClient {
 			})
 		);
 
-		this.log('SDP', `Sending SDP offer`);
-		if (this.peerConnection !== null && this.peerConnection.localDescription)
-			this.signalingClient?.sendSdpOffer(this.peerConnection.localDescription);
-		this.log('ICE', `Generating ICE candidates`);
-
+		this.sendSdpOffer();
 		this.lastRetry = new Date();
 		await this.connectionObserver?.start();
 	}
@@ -233,11 +229,14 @@ export default class Viewer extends WebRTCClient {
 			})
 		);
 
+		this.sendSdpOffer();
+		this.connectionObserver?.start();
+	}
+
+	private async sendSdpOffer() {
 		this.log('SDP', `Sending SDP Restart offer`);
 		if (this.peerConnection !== null && this.peerConnection.localDescription)
 			this.signalingClient?.sendSdpOffer(this.peerConnection.localDescription);
 		this.log('ICE', `Generating ICE candidates`);
-
-		await this.connectionObserver?.restart();
 	}
 }
