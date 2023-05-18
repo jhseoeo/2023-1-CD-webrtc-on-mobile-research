@@ -9,6 +9,7 @@ import {
 	type LocalAndRemoteIceCandidateStats,
 	type RTCicecandidateStats
 } from './constants';
+import { asyncSleep } from '$lib/utils';
 
 export default class WebRTCClient {
 	protected channelName: string;
@@ -99,9 +100,11 @@ export default class WebRTCClient {
 	/**
 	 * Connect to Kinesis Video Stream Signaling Channel Websocket Server
 	 */
-	public connectKVS() {
+	public async connectKVS() {
+		this.connectedKVS = false;
 		this.log('KVS', `Starting connection`);
 		this.signalingClient?.open();
+		await this.waitUntilKVSConnected();
 	}
 
 	/**
@@ -153,12 +156,6 @@ export default class WebRTCClient {
 				localCandidate
 			)} /// connected candidate : ${JSON.stringify(remoteCandidate)}`
 		);
-
-		if (localCandidate.candidateType === 'relay' && localCandidate.protocol === 'udp') {
-			this.connectionLevel = ConnectionLevel.TURN;
-		} else {
-			this.connectionLevel = ConnectionLevel.DIRECT;
-		}
 
 		return { localCandidate, remoteCandidate };
 	}
@@ -290,7 +287,8 @@ export default class WebRTCClient {
 	}
 
 	private async getWebRTCStats() {
-		const stats = await this.peerConnection?.getStats(null);
+		const stats = this.peerConnection?.getReceivers()[0].getStats();
+		// const stats = await this.peerConnection?.getStats(null);
 		if (stats === undefined || stats === null) {
 			throw new Error('Cannot get WebRTC Statistics');
 		} else {
@@ -309,15 +307,15 @@ export default class WebRTCClient {
 			return null;
 		}
 
-		candidatePairs.sort((a, b) => {
-			if (
-				a.lastPacketReceivedTimestamp !== undefined &&
-				b.lastPacketReceivedTimestamp !== undefined
-			)
-				return b.lastPacketReceivedTimestamp - a.lastPacketReceivedTimestamp;
-			else return 0;
-		});
-
 		return candidatePairs[0];
+	}
+
+	private async waitUntilKVSConnected() {
+		const timeout = 5000;
+		for (let i = 0; i < timeout; i += 100) {
+			if (this.connectedKVS) return true;
+			await asyncSleep(100);
+		}
+		return false;
 	}
 }

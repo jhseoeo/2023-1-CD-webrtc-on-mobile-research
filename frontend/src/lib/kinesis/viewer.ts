@@ -203,7 +203,7 @@ export default class Viewer extends WebRTCClient {
 		// if device is connected on ios safari, reset KVS to discard staled websocket
 		if (isDeviceIOS()) await this.resetKVS();
 		// if disconnected from KVS, connect again
-		else if (!this.connectedKVS) this.connectKVS();
+		else if (!this.connectedKVS) await this.connectKVS();
 		this.receivedTraffics = 0;
 
 		// Get and Apply ice server(STUN, TURN)
