@@ -195,6 +195,7 @@ export default class WebRTCClient {
 			throw new Error('Error on initialize KVS Channel: wssEndpoint is undefined');
 		}
 
+		// make new signaling client instance
 		const signalingClient = new SignalingClient({
 			role: this.role,
 			clientId: this.role == Role.MASTER ? undefined : this.clientId,
@@ -207,6 +208,7 @@ export default class WebRTCClient {
 			}
 		});
 
+		// when connected to kvs websocket server, called this
 		signalingClient.on('open', async () => {
 			if (this.kvsConnectionStateHandler) {
 				this.connectedKVS = true;
@@ -215,6 +217,7 @@ export default class WebRTCClient {
 			this.log('KVS', `Connected to signaling service`);
 		});
 
+		// when received ice candidate from signaling channel, called this
 		signalingClient.on('iceCandidate', async (candidate, remoteClientId) => {
 			this.log(
 				'ICE',
@@ -225,6 +228,7 @@ export default class WebRTCClient {
 			this.peerConnection?.addIceCandidate(candidate);
 		});
 
+		// when disconnected to kvs websocket server, called this
 		signalingClient.on('close', () => {
 			if (this.kvsConnectionStateHandler) {
 				this.connectedKVS = false;
@@ -233,6 +237,7 @@ export default class WebRTCClient {
 			this.log('KVS', `Disconnected from signaling channel`);
 		});
 
+		// when an error occured on signaling error, called this
 		signalingClient.on('error', (e) => {
 			this.log('Error', `Signaling client error : ${e}`);
 			console.log('Signaling client error :', e);
@@ -265,27 +270,30 @@ export default class WebRTCClient {
 			iceTransportPolicy: this.turnOnly ? 'relay' : 'all'
 		});
 
+		// when RTCPeerConnection.iceConnectionState change, called this
 		peerConnection.oniceconnectionstatechange = (event) => {
 			this.log(
 				'WebRTC',
 				`iceConnectionState changed : ${(event.target as RTCPeerConnection).iceConnectionState}`
 			);
-			if (this.iceConnectionStateHandler)
-				this.iceConnectionStateHandler((event.target as RTCPeerConnection).iceConnectionState);
+			this.iceConnectionStateHandler((event.target as RTCPeerConnection).iceConnectionState);
 		};
 
+		// when RTCPeerConnection.connectionState change, called this
 		peerConnection.onconnectionstatechange = (event) => {
 			this.log(
 				'WebRTC',
 				`connectionState changed : ${(event.target as RTCPeerConnection).connectionState}`
 			);
-			if (this.connectionStateHandler)
-				this.connectionStateHandler((event.target as RTCPeerConnection).connectionState);
+			this.connectionStateHandler((event.target as RTCPeerConnection).connectionState);
 		};
 
 		return peerConnection;
 	}
 
+	/**
+	 * Get current RTCPeerConnection candidate-pair
+	 */
 	private async getWebRTCStats() {
 		const stats = this.peerConnection?.getReceivers()[0].getStats();
 		// const stats = await this.peerConnection?.getStats(null);
@@ -296,6 +304,9 @@ export default class WebRTCClient {
 		}
 	}
 
+	/**
+	 * Get current candidate-pair statistics
+	 */
 	private async getCurrentCandidatePair(stats: RTCStatsReport) {
 		const candidatePairs: RTCIceCandidatePairStats[] = [];
 		stats?.forEach((report) => {
@@ -310,6 +321,9 @@ export default class WebRTCClient {
 		return candidatePairs[0];
 	}
 
+	/**
+	 * Poll until connected to kvs channel
+	 */
 	private async waitUntilKVSConnected() {
 		const timeout = 5000;
 		for (let i = 0; i < timeout; i += 100) {

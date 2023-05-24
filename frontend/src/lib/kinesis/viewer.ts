@@ -71,6 +71,7 @@ export default class Viewer extends WebRTCClient {
 				this.log('ICE', `Generated ICE candidate : ${candidate.candidate}`);
 
 				console.log(candidate.type, candidate.address, candidate.protocol);
+
 				this.signalingClient?.sendIceCandidate(candidate);
 			} else {
 				this.log('ICE', `All ICE candidates have been generated`);
@@ -208,6 +209,7 @@ export default class Viewer extends WebRTCClient {
 
 		// Get and Apply ice server(STUN, TURN)
 		const iceServerList = await this.getIceServerList(this.channelARN);
+		console.log(iceServerList);
 
 		let level = ConnectionLevel.DIRECT;
 		const now = Date.now();

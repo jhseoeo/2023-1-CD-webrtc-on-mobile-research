@@ -70,6 +70,9 @@ export default class ConnectionObserver {
 		}, OBSERVER_INTERVAL);
 	}
 
+	/**
+	 * return whether ConnectionObserver decided as disconnected
+	 */
 	public isDisconnected() {
 		return this.disconnected;
 	}

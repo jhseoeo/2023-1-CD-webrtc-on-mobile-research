@@ -15,6 +15,7 @@ export default class Master extends WebRTCClient {
 	public async init() {
 		await super.init();
 
+		// if there is local stream and no existing tracks, add local stream into track
 		if (this.localStream && this.tracks.length === 0) {
 			this.localStream.getTracks().forEach((track) => {
 				const sender = this.peerConnection?.addTrack(track, this.localStream);
@@ -22,22 +23,26 @@ export default class Master extends WebRTCClient {
 			});
 		}
 
+		// when received sdp offer from signaling channel, called this
 		this.signalingClient?.on('sdpOffer', async (offer, remoteClientId) => {
 			this.log('SDP', `Received SDP offer from client : ${remoteClientId}`);
 
 			// Send any ICE candidates to the other peer
-			if (this.peerConnection !== null && !this.peerConnection.onicecandidate) {
+			if (this.peerConnection !== null) {
+				// every time RTCPeerConnection generates ice candidates, send its candidate
 				this.peerConnection.onicecandidate = ({ candidate }) => {
 					if (candidate) {
 						this.log('ICE', `Generated ICE candidate : ${candidate.candidate}`);
 
 						console.log(candidate.type, candidate.address, candidate.protocol);
+
 						this.signalingClient?.sendIceCandidate(candidate, remoteClientId);
 					} else {
 						this.log('ICE', `All ICE candidates have been generated`);
 					}
 				};
 
+				//
 				this.peerConnection.ondatachannel = (event) => {
 					this.pingChannel = event.channel;
 					this.pingChannel.onopen = () => {
@@ -53,6 +58,7 @@ export default class Master extends WebRTCClient {
 				};
 			}
 
+			// set sdp offer as remote description
 			await this.peerConnection?.setRemoteDescription(offer);
 
 			// Create an SDP answer to send back to the client
@@ -64,9 +70,8 @@ export default class Master extends WebRTCClient {
 				})
 			);
 
-			// When trickle ICE is enabled, send the answer now and then send ICE candidates as they are generated. Otherwise wait on the ICE candidates.
 			this.log('SDP', `Sending SDP answer`);
-			if (this.peerConnection !== null && this.peerConnection.localDescription)
+			if (this.peerConnection !== null && this.peerConnection.localDescription !== null)
 				this.signalingClient?.sendSdpAnswer(this.peerConnection.localDescription, remoteClientId);
 			this.log('ICE', `Generating ICE candidates`);
 		});
