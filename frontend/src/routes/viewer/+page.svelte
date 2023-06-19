@@ -58,6 +58,10 @@
 		viewer.registerConnectionObserverDefaultHandler((bytes) => {
 			receivedBytes = String(bytes);
 		})
+
+		document.onvisibilitychange = () => {
+			viewer?.handleVisibilityChange(document.visibilityState)
+		}
 	});
 </script>
 

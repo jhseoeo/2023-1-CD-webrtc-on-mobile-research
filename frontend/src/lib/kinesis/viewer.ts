@@ -235,6 +235,14 @@ export default class Viewer extends WebRTCClient {
 		this.connectionObserver?.start();
 	}
 
+	public handleVisibilityChange(visibility: DocumentVisibilityState) {
+		if (visibility === 'visible') {
+			if (this.peerConnection?.iceConnectionState === 'connected')
+				this.connectionObserver?.checkDisconnected();
+			else this.retryWebRTC();
+		}
+	}
+
 	private async sendSdpOffer() {
 		this.log('SDP', `Sending SDP Restart offer`);
 		if (this.peerConnection !== null && this.peerConnection.localDescription)
